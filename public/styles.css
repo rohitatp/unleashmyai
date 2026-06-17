@@ -316,9 +316,13 @@ button:disabled {
 }
 
 .tool-tab .llm-badge {
+  display: inline-flex;
+  width: auto;
   margin-left: 6px;
   vertical-align: middle;
+  color: #fffaf0;
   font-size: 0.56rem;
+  font-weight: 900;
   padding: 1px 6px;
 }
 

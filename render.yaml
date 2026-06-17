@@ -1,0 +1,17 @@
+services:
+  - type: web
+    runtime: node
+    name: unleashmyai
+    repo: https://github.com/rohitatp/unleashmyai
+    branch: main
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    domains:
+      - unleashmyai.com
+    envVars:
+      - key: NODE_VERSION
+        value: 22

@@ -1,9 +1,13 @@
+// Each tool declares whether it is powered by a large language model via `llm`.
+// When `llm: true`, a slanted "LLM" badge is shown on the tool tab and heading
+// (see app.js). Today's tools run on code; set `llm: true` when adding LLM tools.
 const TOOL_DEFINITIONS = [
   {
     id: "speech-to-text",
     title: "Speech to Text",
     category: "Voice Tools",
     summary: "Record speech from your microphone and turn it into editable text.",
+    llm: false,
     render: renderSpeechToText
   },
   {
@@ -11,6 +15,7 @@ const TOOL_DEFINITIONS = [
     title: "Text to Speech",
     category: "Voice Tools",
     summary: "Read text aloud using browser voices, speed, and pitch controls.",
+    llm: false,
     render: renderTextToSpeech
   },
   {
@@ -18,6 +23,7 @@ const TOOL_DEFINITIONS = [
     title: "YouTube Transcript",
     category: "YouTube Tools",
     summary: "Fetch public YouTube captions and export clean or timestamped text.",
+    llm: false,
     render: renderYoutubeTranscript
   },
   {
@@ -25,13 +31,15 @@ const TOOL_DEFINITIONS = [
     title: "Viral Post Generator",
     category: "Social Media Tools",
     summary: "Create platform-specific posts from one idea using deterministic templates.",
+    llm: false,
     render: renderViralPostGenerator
   },
   {
     id: "voice-to-linkedin-post",
     title: "Voice to LinkedIn Post",
     category: "Social Media Tools",
-    summary: "Capture a voice note and shape it into a LinkedIn post without an LLM.",
+    summary: "Capture a voice note and shape it into a clean, structured LinkedIn post.",
+    llm: false,
     render: renderVoiceToLinkedin
   },
   {
@@ -39,6 +47,7 @@ const TOOL_DEFINITIONS = [
     title: "Content Repurposer",
     category: "Creator Tools",
     summary: "Turn long text into posts, threads, captions, and newsletter blurbs.",
+    llm: false,
     render: renderContentRepurposer
   },
   {
@@ -46,6 +55,7 @@ const TOOL_DEFINITIONS = [
     title: "Clip Finder",
     category: "Creator Tools",
     summary: "Score transcript moments and find likely short-form clip candidates.",
+    llm: false,
     render: renderClipFinder
   }
 ];
@@ -563,7 +573,7 @@ function renderVoiceToLinkedin(mount) {
     }
     latest = createPosts(transcript, { tone: "story", audience: "LinkedIn readers" }).LinkedIn;
     output.textContent = latest;
-    status.textContent = "LinkedIn draft created without an LLM.";
+    status.textContent = "LinkedIn draft created.";
   });
 
   document.getElementById("voiceLinkedinCopy").addEventListener("click", () => copyText(latest, status));

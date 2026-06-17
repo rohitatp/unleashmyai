@@ -3,6 +3,7 @@ const toolMount = document.getElementById("toolMount");
 const toolTitle = document.getElementById("toolTitle");
 const toolCategory = document.getElementById("toolCategory");
 const toolPermalink = document.getElementById("toolPermalink");
+const toolLlmBadge = document.getElementById("toolLlmBadge");
 
 function toolPath(toolId) {
   return `/tools/${toolId}`;
@@ -18,7 +19,7 @@ function renderToolList(activeId) {
   toolList.innerHTML = TOOL_DEFINITIONS.map(
     (tool) =>
       `<button class="tool-tab ${tool.id === activeId ? "active" : ""}" data-tool-id="${tool.id}">
-        <strong>${escapeHtml(tool.title)}</strong>
+        <strong>${escapeHtml(tool.title)}${tool.llm ? '<span class="llm-badge">LLM</span>' : ""}</strong>
         <span>${escapeHtml(tool.summary)}</span>
       </button>`
   ).join("");
@@ -29,6 +30,7 @@ function activateTool(tool, updateHistory = true) {
 
   toolTitle.textContent = tool.title;
   toolCategory.textContent = tool.category;
+  if (toolLlmBadge) toolLlmBadge.hidden = !tool.llm;
   toolPermalink.href = toolPath(tool.id);
   toolMount.innerHTML = "";
   renderToolList(tool.id);

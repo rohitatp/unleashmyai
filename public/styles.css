@@ -98,9 +98,12 @@ select {
   width: 34px;
   height: 34px;
   place-items: center;
-  border-radius: 8px;
-  background: var(--ink);
-  color: #fffaf0;
+}
+
+.brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .top-nav {
@@ -279,11 +282,44 @@ button:disabled {
 }
 
 .tool-sidebar h2,
-.tool-heading h2,
-.principles h2 {
+.tool-heading h2 {
   margin: 0;
   font-size: clamp(1.55rem, 3vw, 2.4rem);
   letter-spacing: 0;
+}
+
+.tool-heading-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+/* Slanted "LLM" badge shown on tools powered by a large language model. */
+.llm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent), var(--gold));
+  color: #fffaf0;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transform: rotate(-7deg);
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.28);
+}
+
+.llm-badge[hidden] {
+  display: none;
+}
+
+.tool-tab .llm-badge {
+  margin-left: 6px;
+  vertical-align: middle;
+  font-size: 0.56rem;
+  padding: 1px 6px;
 }
 
 .tool-list {
@@ -439,34 +475,6 @@ button:disabled {
   font-weight: 800;
 }
 
-.principles {
-  display: grid;
-  gap: 22px;
-  padding: clamp(42px, 7vw, 84px) clamp(18px, 5vw, 64px);
-}
-
-.principle-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.principle-grid article {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fffdf9;
-  padding: 20px;
-}
-
-.principle-grid h3 {
-  margin: 0 0 8px;
-}
-
-.principle-grid p {
-  margin: 0;
-  color: var(--muted);
-}
-
 .site-footer {
   display: flex;
   justify-content: space-between;
@@ -479,8 +487,7 @@ button:disabled {
 @media (max-width: 980px) {
   .hero,
   .tool-shell,
-  .tool-grid,
-  .principle-grid {
+  .tool-grid {
     grid-template-columns: 1fr;
   }
 

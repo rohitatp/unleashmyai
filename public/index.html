@@ -3,19 +3,31 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Free code-powered AI-adjacent tools for creators, founders, and busy professionals.">
+    <meta name="description" content="Free AI tools for creators, founders, and busy professionals — voice, transcripts, and social content.">
     <title>Unleash My AI</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="/" aria-label="Unleash My AI home">
-        <span class="brand-mark">U</span>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="brandBadge" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#0f9488"/>
+                <stop offset="1" stop-color="#115e59"/>
+              </linearGradient>
+            </defs>
+            <rect width="40" height="40" rx="10" fill="url(#brandBadge)"/>
+            <path d="M20 7 C 20.9 15.1 24.9 19.1 33 20 C 24.9 20.9 20.9 24.9 20 33 C 19.1 24.9 15.1 20.9 7 20 C 15.1 19.1 19.1 15.1 20 7 Z" fill="#fffaf0"/>
+            <path d="M29.5 7 C 29.8 9.6 30.9 10.7 33.5 11 C 30.9 11.3 29.8 12.4 29.5 15 C 29.2 12.4 28.1 11.3 25.5 11 C 28.1 10.7 29.2 9.6 29.5 7 Z" fill="#e9a23b"/>
+          </svg>
+        </span>
         <span>Unleash My AI</span>
       </a>
       <nav class="top-nav" aria-label="Primary navigation">
         <a href="#tools">Tools</a>
-        <a href="#principles">No LLMs</a>
         <a href="https://github.com/rohitatp" target="_blank" rel="noreferrer">GitHub</a>
       </nav>
     </header>
@@ -23,14 +35,14 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Code-powered creator tools</p>
+          <p class="eyebrow">Free AI tools</p>
           <h1>Useful tools for voice, video transcripts, and social content.</h1>
           <p class="hero-text">
-            Start with practical utilities that run on browser APIs, deterministic templates, and lightweight parsing. No paid AI APIs, no hidden LLM calls.
+            A growing toolbox for creators, founders, and busy professionals — fast utilities for voice, transcripts, and social content today, with more AI-powered tools rolling out.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#tools">Open tools</a>
-            <a class="button secondary" href="#principles">How it works</a>
+            <a class="button secondary" href="https://github.com/rohitatp/unleashmyai" target="_blank" rel="noreferrer">View on GitHub</a>
           </div>
         </div>
         <div class="hero-panel" aria-label="Featured workflow">
@@ -40,7 +52,7 @@
           </div>
           <div class="workflow-step">
             <span>2</span>
-            <p>Run local browser APIs and rule-based formatting.</p>
+            <p>Process it instantly — free, no signup required.</p>
           </div>
           <div class="workflow-step">
             <span>3</span>
@@ -61,7 +73,10 @@
         <section class="tool-workspace" aria-live="polite">
           <div class="tool-heading">
             <div>
-              <p id="toolCategory" class="eyebrow">Voice Tools</p>
+              <div class="tool-heading-top">
+                <p id="toolCategory" class="eyebrow">Voice Tools</p>
+                <span id="toolLlmBadge" class="llm-badge" title="This tool is powered by a large language model" hidden>LLM</span>
+              </div>
               <h2 id="toolTitle">Speech to Text</h2>
             </div>
             <a id="toolPermalink" class="small-link" href="/tools/speech-to-text">Permalink</a>
@@ -71,31 +86,11 @@
         </section>
       </section>
 
-      <section id="principles" class="principles">
-        <div>
-          <p class="eyebrow">Build principle</p>
-          <h2>No LLM dependency in this starter repo.</h2>
-        </div>
-        <div class="principle-grid">
-          <article>
-            <h3>Browser APIs first</h3>
-            <p>Speech recognition and speech synthesis use capabilities already available in modern browsers.</p>
-          </article>
-          <article>
-            <h3>Templates and heuristics</h3>
-            <p>Social posts, repurposed content, and clip suggestions are generated with deterministic scoring and formatting rules.</p>
-          </article>
-          <article>
-            <h3>Server only where needed</h3>
-            <p>The YouTube transcript tool uses a small Node API to fetch public caption tracks because browsers cannot reliably do that directly.</p>
-          </article>
-        </div>
-      </section>
     </main>
 
     <footer class="site-footer">
       <span>unleashmyai.com</span>
-      <span>Free code-powered tools. Built by Rohit.</span>
+      <span>Free AI tools for everyone.</span>
     </footer>
 
     <script src="/tools.js"></script>

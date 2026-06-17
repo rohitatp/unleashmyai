@@ -1,14 +1,14 @@
 # Unleash My AI
 
-Free code-powered tools for creators, founders, and busy professionals.
+Free AI tools for creators, founders, and busy professionals.
 
-This first version intentionally does **not** use AI APIs, LLMs, or paid model providers. The tools are implemented with browser APIs, deterministic templates, transcript parsing, and lightweight text heuristics.
+A growing toolbox of useful utilities. Today's tools run on browser APIs, deterministic templates, transcript parsing, and lightweight text heuristics; LLM-powered tools are being added over time. Any tool powered by a large language model is marked with an **LLM** badge in the UI.
 
 ## Tools included
 
 - Speech to Text: browser-native speech recognition with transcript export.
 - Text to Speech: browser-native speech synthesis with voice, rate, pitch, and download-friendly text.
-- YouTube Transcript: server-side caption lookup and transcript extraction from public caption tracks.
+- YouTube Transcript: server-side caption lookup via the Supadata API (set `SUPADATA_API_KEY`).
 - Viral Social Media Post Creator: deterministic post generation for LinkedIn, X, Instagram, and Facebook.
 - Voice to LinkedIn Post: speech capture plus rule-based LinkedIn post generation.
 - Content Repurposer: turn long text into platform-specific content using templates.
@@ -42,6 +42,6 @@ The frontend is static, but the YouTube transcript tool needs the Node server ro
 
 For full functionality, deploy to a Node-capable host such as Render, Railway, Fly.io, or a VPS. GitHub Pages can host the static interface, but it cannot run the transcript API server.
 
-## No LLM policy
+## AI tools
 
-Current tools must remain deterministic/code-powered. Future tools that use locally hosted models should be added behind clear server-side routes and documented separately.
+Tools can be code-based or LLM-powered. Any tool that calls a large language model is flagged with an **LLM** badge in the UI — set `llm: true` on its entry in `public/tools.js` to enable the badge.

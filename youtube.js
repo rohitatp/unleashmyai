@@ -252,35 +252,4 @@ async function fetchYoutubeTranscript(url) {
   };
 }
 
-// TEMPORARY diagnostic: report, per InnerTube client, whether YouTube returns
-// caption tracks for a video. Used to tell apart a code bug from datacenter-IP
-// caption stripping on the host. Remove once the transcript path is confirmed.
-async function inspectVideo(videoId) {
-  const result = { videoId, sessionOk: false, clients: {} };
-  let session;
-  try {
-    session = await getSession();
-    result.sessionOk = true;
-  } catch (error) {
-    result.sessionError = error.message;
-    return result;
-  }
-
-  const { innertube } = session;
-  for (const client of ["WEB", "ANDROID", "IOS", "TVHTML5", "MWEB"]) {
-    try {
-      const info = await innertube.getInfo(videoId, client);
-      const tracks = (info.captions && info.captions.caption_tracks) || [];
-      result.clients[client] = {
-        title: (info.basic_info.title || "").slice(0, 40),
-        trackCount: tracks.length,
-        langs: tracks.map((track) => track.language_code).slice(0, 8)
-      };
-    } catch (error) {
-      result.clients[client] = { error: error.message };
-    }
-  }
-  return result;
-}
-
-module.exports = { fetchYoutubeTranscript, extractVideoId, inspectVideo };
+module.exports = { fetchYoutubeTranscript, extractVideoId };

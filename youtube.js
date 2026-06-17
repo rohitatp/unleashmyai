@@ -86,6 +86,14 @@ async function fetchYoutubeTranscript(url) {
     throw error;
   }
 
+  // 402 Payment Required = the shared Supadata free credits are exhausted.
+  // Surface a distinct 402 so the UI can point users to the paste-transcript tool.
+  if (response.status === 402) {
+    const error = new Error("The auto-transcript service is out of free credits for this month.");
+    error.statusCode = 402;
+    throw error;
+  }
+
   if (response.status === 401 || response.status === 403) {
     const error = new Error("The transcript service rejected the API key.");
     error.statusCode = 500;

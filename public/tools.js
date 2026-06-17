@@ -27,12 +27,36 @@ const TOOL_DEFINITIONS = [
     render: renderYoutubeTranscript
   },
   {
+    id: "youtube-summarizer",
+    title: "YouTube Summarizer",
+    category: "YouTube Tools",
+    summary: "Paste a URL — get a TL;DR, key points, and chapters from the transcript.",
+    llm: true,
+    render: renderYoutubeSummarizer
+  },
+  {
+    id: "transcript-summarizer",
+    title: "Transcript Summarizer",
+    category: "YouTube Tools",
+    summary: "Paste any transcript or long text and get a clean summary with key points.",
+    llm: true,
+    render: renderTranscriptSummarizer
+  },
+  {
     id: "viral-post-generator",
     title: "Viral Post Generator",
     category: "Social Media Tools",
     summary: "Create platform-specific posts from one idea using deterministic templates.",
     llm: false,
     render: renderViralPostGenerator
+  },
+  {
+    id: "ai-post-generator",
+    title: "AI Post Generator",
+    category: "Social Media Tools",
+    summary: "Turn one idea into platform-specific posts written by your chosen AI model.",
+    llm: true,
+    render: renderAiPostGenerator
   },
   {
     id: "voice-to-linkedin-post",
@@ -765,5 +789,253 @@ function renderClipFinder(mount) {
       .map((clip) => `${clip.title}\n${formatSeconds(clip.start)}-${formatSeconds(clip.end)}\n${clip.text}`)
       .join("\n\n---\n\n");
     copyText(text, status);
+  });
+}
+
+// ---- LLM (bring-your-own-key) tools ----
+
+// Gate: if the visitor hasn't set an API key, show a prompt to add one;
+// otherwise render the actual tool body. (callLLM / hasLlmKey come from llm.js.)
+function renderLlmGate(mount, renderBody) {
+  if (hasLlmKey()) {
+    renderBody(mount);
+    return;
+  }
+  renderShell(
+    mount,
+    `<div class="llm-gate">
+      <h3>Add your AI key to use this tool</h3>
+      <p>This tool runs on your own Claude, OpenAI, or Gemini key — stored only in your browser, never on our servers.</p>
+      <button class="primary" id="gateOpen">Add API key</button>
+    </div>`
+  );
+  document.getElementById("gateOpen").addEventListener("click", () => window.openLlmSettings());
+}
+
+const SUMMARY_SYSTEM =
+  "You are a precise summarizer. Given a transcript or long text, produce a clear, faithful, well-structured summary in plain text (no markdown symbols like # or *). Do not invent facts that are not in the source.";
+
+function summaryPrompt(text) {
+  return `Summarize the transcript below. Return exactly these three sections, each starting with the heading in capitals followed by a colon on its own line:
+
+TL;DR: one or two sentences.
+KEY POINTS: 5-8 lines, each starting with "- ".
+CHAPTERS: 4-8 lines. If the text has timestamps use "mm:ss - short title"; otherwise list logical sections as "- title".
+
+Transcript:
+"""
+${text}
+"""`;
+}
+
+async function runSummary(text, output, status) {
+  status.textContent = "Summarizing with your AI model…";
+  output.textContent = "";
+  try {
+    output.textContent = await callLLM({
+      system: SUMMARY_SYSTEM,
+      prompt: summaryPrompt(text),
+      maxTokens: 1200
+    });
+    status.textContent = "Done.";
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+function renderTranscriptSummarizer(mount) {
+  renderLlmGate(mount, (m) => {
+    renderShell(
+      m,
+      `<div class="tool-grid">
+        <div class="panel">
+          <h3>Transcript or long text</h3>
+          <div class="field">
+            <textarea id="tsInput" placeholder="Paste a transcript, article, or notes…"></textarea>
+          </div>
+          <div class="action-row">
+            <button class="primary" id="tsRun">Summarize</button>
+            <button class="secondary" id="tsCopy">Copy</button>
+            <button class="secondary" id="tsDownload">Download .txt</button>
+          </div>
+          <p id="tsStatus" class="status"></p>
+        </div>
+        <div class="panel">
+          <h3>Summary</h3>
+          <div id="tsOutput" class="output"></div>
+        </div>
+      </div>`
+    );
+    const status = document.getElementById("tsStatus");
+    const output = document.getElementById("tsOutput");
+    document.getElementById("tsRun").addEventListener("click", () => {
+      const text = document.getElementById("tsInput").value.trim();
+      if (!text) {
+        status.textContent = "Paste some text first.";
+        return;
+      }
+      runSummary(text, output, status);
+    });
+    document.getElementById("tsCopy").addEventListener("click", () => copyText(output.textContent, status));
+    document.getElementById("tsDownload").addEventListener("click", () => downloadText("summary.txt", output.textContent));
+  });
+}
+
+function renderYoutubeSummarizer(mount) {
+  renderLlmGate(mount, (m) => {
+    renderShell(
+      m,
+      `<div class="tool-grid">
+        <div class="panel">
+          <h3>YouTube URL</h3>
+          <div class="field">
+            <label for="ysUrl">Video URL or ID</label>
+            <input id="ysUrl" placeholder="https://www.youtube.com/watch?v=…">
+          </div>
+          <div class="action-row">
+            <button class="primary" id="ysRun">Summarize video</button>
+            <button class="secondary" id="ysCopy">Copy</button>
+            <button class="secondary" id="ysDownload">Download .txt</button>
+          </div>
+          <p id="ysStatus" class="status"></p>
+          <div id="ysFallback"></div>
+        </div>
+        <div class="panel">
+          <h3 id="ysTitle">Summary</h3>
+          <div id="ysOutput" class="output"></div>
+        </div>
+      </div>`
+    );
+    const status = document.getElementById("ysStatus");
+    const output = document.getElementById("ysOutput");
+    const fallback = document.getElementById("ysFallback");
+
+    document.getElementById("ysRun").addEventListener("click", async () => {
+      const url = document.getElementById("ysUrl").value.trim();
+      fallback.innerHTML = "";
+      if (!url) {
+        status.textContent = "Paste a YouTube URL first.";
+        return;
+      }
+      status.textContent = "Fetching the transcript…";
+      output.textContent = "";
+
+      let data;
+      try {
+        const response = await fetch(`/api/youtube-transcript?url=${encodeURIComponent(url)}`);
+        data = await response.json();
+        if (!response.ok) {
+          if (response.status === 402) {
+            status.textContent = "";
+            fallback.innerHTML = `<div class="tool-callout">
+              <strong>Auto-transcript is out of free credits</strong>
+              <p>The free monthly transcript quota ran out. Grab the transcript from a free site and paste it into the Transcript Summarizer instead.</p>
+              <button class="secondary" id="ysToPaste">Open Transcript Summarizer →</button>
+            </div>`;
+            document
+              .getElementById("ysToPaste")
+              .addEventListener("click", () => window.activateToolById("transcript-summarizer"));
+            return;
+          }
+          throw new Error(data.error || "Could not fetch the transcript.");
+        }
+      } catch (error) {
+        status.textContent = error.message || "Could not fetch the transcript.";
+        return;
+      }
+
+      document.getElementById("ysTitle").textContent = data.title || "Summary";
+      runSummary(data.plainText || "", output, status);
+    });
+
+    document.getElementById("ysCopy").addEventListener("click", () => copyText(output.textContent, status));
+    document.getElementById("ysDownload").addEventListener("click", () => downloadText("youtube-summary.txt", output.textContent));
+  });
+}
+
+function renderAiPostGenerator(mount) {
+  renderLlmGate(mount, (m) => {
+    const platforms = ["LinkedIn", "X", "Instagram", "Facebook"];
+    renderShell(
+      m,
+      `<div class="tool-grid">
+        <div class="panel">
+          <h3>Your idea</h3>
+          <div class="field">
+            <textarea id="apIdea" placeholder="What do you want to post about?"></textarea>
+          </div>
+          <div class="field">
+            <label>Platforms</label>
+            <div class="metric-row" id="apPlatforms">
+              ${platforms
+                .map(
+                  (p, i) =>
+                    `<label class="metric" style="cursor:pointer"><input type="checkbox" value="${p}" ${
+                      i < 2 ? "checked" : ""
+                    } style="width:auto;min-height:auto;margin-right:6px"> ${p}</label>`
+                )
+                .join("")}
+            </div>
+          </div>
+          <div class="field">
+            <label for="apTone">Tone</label>
+            <select id="apTone">
+              <option>practical</option>
+              <option>bold</option>
+              <option>story</option>
+              <option>professional</option>
+              <option>friendly</option>
+            </select>
+          </div>
+          <div class="action-row">
+            <button class="primary" id="apRun">Generate posts</button>
+            <button class="secondary" id="apCopy">Copy</button>
+            <button class="secondary" id="apDownload">Download .txt</button>
+          </div>
+          <p id="apStatus" class="status"></p>
+        </div>
+        <div class="panel">
+          <h3>Posts</h3>
+          <div id="apOutput" class="output"></div>
+        </div>
+      </div>`
+    );
+    const status = document.getElementById("apStatus");
+    const output = document.getElementById("apOutput");
+
+    document.getElementById("apRun").addEventListener("click", async () => {
+      const idea = document.getElementById("apIdea").value.trim();
+      const chosen = Array.from(document.querySelectorAll("#apPlatforms input:checked")).map((c) => c.value);
+      const tone = document.getElementById("apTone").value;
+      if (!idea) {
+        status.textContent = "Describe your idea first.";
+        return;
+      }
+      if (!chosen.length) {
+        status.textContent = "Pick at least one platform.";
+        return;
+      }
+      status.textContent = "Writing posts with your AI model…";
+      output.textContent = "";
+
+      const system =
+        "You are a social media copywriter. Write platform-native posts that are specific and engaging, with no generic filler. Plain text only — no markdown headers.";
+      const prompt = `Idea: ${idea}
+
+Tone: ${tone}
+Write one post for each of these platforms: ${chosen.join(", ")}.
+
+For each platform, put the platform name in capitals on its own line, then the post, then a blank line. Tailor each: LinkedIn = strong hook + short paragraphs; X = punchy, under 280 characters; Instagram = caption plus a few fitting hashtags; Facebook = conversational. Use hashtags only where they fit.`;
+
+      try {
+        output.textContent = await callLLM({ system, prompt, maxTokens: 1500 });
+        status.textContent = "Done.";
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    });
+
+    document.getElementById("apCopy").addEventListener("click", () => copyText(output.textContent, status));
+    document.getElementById("apDownload").addEventListener("click", () => downloadText("ai-posts.txt", output.textContent));
   });
 }

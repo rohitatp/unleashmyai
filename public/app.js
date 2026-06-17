@@ -52,4 +52,83 @@ window.addEventListener("popstate", () => {
   activateTool(findToolFromLocation(), false);
 });
 
+// Let other modules (e.g. a tool's fallback button) switch tools by id.
+window.activateToolById = (id) => {
+  const tool = TOOL_DEFINITIONS.find((item) => item.id === id);
+  if (tool) activateTool(tool);
+};
+
+// ---- BYOK settings modal ----
+const settingsOverlay = document.getElementById("settingsOverlay");
+const providerSelect = document.getElementById("settingsProvider");
+const keyInput = document.getElementById("settingsKey");
+const keyHint = document.getElementById("settingsKeyHint");
+const modelSelect = document.getElementById("settingsModel");
+const settingsStatus = document.getElementById("settingsStatus");
+
+function syncModalToProvider(provider, settings) {
+  const def = PROVIDERS[provider];
+  keyInput.value = settings.keys[provider] || "";
+  keyInput.placeholder = `Paste your ${def.label} key`;
+  keyHint.innerHTML = `${escapeHtml(def.keyHint)} · <a href="${def.keyUrl}" target="_blank" rel="noreferrer">Get a key</a>`;
+  const chosenModel = settings.models[provider] || def.models[0].id;
+  modelSelect.innerHTML = def.models
+    .map(
+      (m) =>
+        `<option value="${escapeHtml(m.id)}" ${m.id === chosenModel ? "selected" : ""}>${escapeHtml(m.label)}</option>`
+    )
+    .join("");
+}
+
+function openLlmSettings() {
+  const settings = getLlmSettings();
+  providerSelect.innerHTML = PROVIDER_ORDER.map(
+    (id) => `<option value="${id}">${escapeHtml(PROVIDERS[id].label)}</option>`
+  ).join("");
+  providerSelect.value = settings.provider;
+  syncModalToProvider(settings.provider, settings);
+  settingsStatus.textContent = "";
+  settingsOverlay.hidden = false;
+}
+window.openLlmSettings = openLlmSettings;
+
+function closeLlmSettings() {
+  settingsOverlay.hidden = true;
+}
+
+document.getElementById("openSettings").addEventListener("click", openLlmSettings);
+document.getElementById("closeSettings").addEventListener("click", closeLlmSettings);
+settingsOverlay.addEventListener("click", (event) => {
+  if (event.target === settingsOverlay) closeLlmSettings();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !settingsOverlay.hidden) closeLlmSettings();
+});
+
+providerSelect.addEventListener("change", () => {
+  syncModalToProvider(providerSelect.value, getLlmSettings());
+});
+
+document.getElementById("saveSettings").addEventListener("click", () => {
+  const provider = providerSelect.value;
+  const key = keyInput.value.trim();
+  saveLlmSettings({
+    provider,
+    keys: { [provider]: key },
+    models: { [provider]: modelSelect.value }
+  });
+  settingsStatus.textContent = key
+    ? "Saved. You can close this and use the AI tools."
+    : "Saved provider/model (no key set yet).";
+  activateTool(findToolFromLocation(), false); // refresh so LLM-tool gates update
+});
+
+document.getElementById("clearSettings").addEventListener("click", () => {
+  const provider = providerSelect.value;
+  saveLlmSettings({ keys: { [provider]: "" } });
+  keyInput.value = "";
+  settingsStatus.textContent = `Cleared your ${PROVIDERS[provider].label} key.`;
+  activateTool(findToolFromLocation(), false);
+});
+
 activateTool(findToolFromLocation(), false);

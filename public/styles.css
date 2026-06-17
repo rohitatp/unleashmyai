@@ -532,3 +532,113 @@ button:disabled {
     width: 100%;
   }
 }
+
+/* Header "API key" button */
+.nav-button {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.nav-button:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* BYOK settings modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(25, 23, 20, 0.45);
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.modal-head strong {
+  font-size: 1.1rem;
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.modal-close:hover {
+  color: var(--ink);
+}
+
+/* Missing-key gate shown inside LLM tools */
+.llm-gate {
+  border: 1px dashed #c9ded9;
+  border-radius: 8px;
+  background: #eef8f6;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.llm-gate h3 {
+  margin: 0 0 6px;
+  color: var(--accent-strong);
+}
+
+.llm-gate p {
+  margin: 0 auto 14px;
+  max-width: 420px;
+  color: #3f5b56;
+  font-size: 0.92rem;
+}
+
+/* Credit-exhaustion / info callout inside a tool */
+.tool-callout {
+  border: 1px solid #f0e0c2;
+  border-radius: 8px;
+  background: #fdf6e9;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.tool-callout strong {
+  color: #8a5a14;
+}
+
+.tool-callout p {
+  margin: 6px 0 12px;
+  color: #5f5235;
+  font-size: 0.9rem;
+}

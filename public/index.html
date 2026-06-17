@@ -29,6 +29,7 @@
       <nav class="top-nav" aria-label="Primary navigation">
         <a href="#tools">Tools</a>
         <a href="https://github.com/rohitatp" target="_blank" rel="noreferrer">GitHub</a>
+        <button type="button" id="openSettings" class="nav-button">API key</button>
       </nav>
     </header>
 
@@ -88,11 +89,44 @@
 
     </main>
 
+    <div id="settingsOverlay" class="modal-overlay" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="modal-head">
+          <strong id="settingsTitle">Your AI API key</strong>
+          <button type="button" id="closeSettings" class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <p class="hint">Pick a provider and paste your own key. It is stored only in your browser and sent only to that provider — never to our servers.</p>
+
+        <div class="field">
+          <label for="settingsProvider">Provider</label>
+          <select id="settingsProvider"></select>
+        </div>
+
+        <div class="field">
+          <label for="settingsKey">API key</label>
+          <input id="settingsKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key">
+          <p id="settingsKeyHint" class="hint"></p>
+        </div>
+
+        <div class="field">
+          <label for="settingsModel">Model</label>
+          <select id="settingsModel"></select>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="primary" id="saveSettings">Save</button>
+          <button type="button" class="danger" id="clearSettings">Clear key</button>
+        </div>
+        <p id="settingsStatus" class="status"></p>
+      </div>
+    </div>
+
     <footer class="site-footer">
       <span>unleashmyai.com</span>
       <span>Free AI tools for everyone.</span>
     </footer>
 
+    <script src="/llm.js"></script>
     <script src="/tools.js"></script>
     <script src="/app.js"></script>
   </body>

@@ -15,6 +15,21 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22
-      # Secret — set the value in the Render dashboard, never in this file.
+      # Secrets — set the values in the Render dashboard, never in this file.
       - key: SUPADATA_API_KEY
+        sync: false
+      # Paid credits (Stripe + Supabase + owner LLM key)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OWNER_LLM_API_KEY
+        sync: false
+      - key: OWNER_LLM_MODEL
         sync: false

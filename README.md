@@ -56,3 +56,18 @@ LLM tools use **the visitor's own API key**, entered via the header "API key" bu
 - removable any time with the **Clear key** button.
 
 This means $0 inference cost for the host and no server-side key handling. To add a new LLM tool: write its `render` function and add a `TOOL_DEFINITIONS` entry with `llm: true` in `public/tools.js`; it reuses the shared `callLLM()` helper and settings panel in `public/llm.js`.
+
+## Paid credits (Stripe + Supabase)
+
+Visitors who don't want to bring a key can **buy credits** and run the AI tools with no key of their own — the server makes the call with the owner's key and deducts **1 credit per action**. Pay-as-you-go: **1000 credits for $20** (buy again to top up). BYOK stays the free path.
+
+How it works:
+- **Buy:** the "Buy credits" button creates a Stripe Checkout session (`POST /api/create-checkout`) and redirects to Stripe's hosted page — the site never touches card data.
+- **Grant:** Stripe's `checkout.session.completed` webhook (`POST /api/stripe-webhook`, HMAC-verified) generates a one-time **access code** and stores a balance in Supabase. The success page (`/credits/success.html`) shows the code and saves it to the browser.
+- **Spend:** with a code active, the tools POST to `POST /api/llm`, which atomically spends 1 credit in Supabase and calls the owner's Claude model. Failed calls refund the credit.
+
+Setup (no npm deps — REST + `node:crypto`):
+1. **Supabase** — create a project, run [`supabase.sql`](supabase.sql) in the SQL editor. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (server-only).
+2. **Stripe** (test mode first) — create a $20 one-time Price (1000 credits) → `STRIPE_PRICE_ID`; copy the secret key → `STRIPE_SECRET_KEY`; add a webhook for `checkout.session.completed` pointing at `/api/stripe-webhook` → `STRIPE_WEBHOOK_SECRET`.
+3. **Owner LLM** — an Anthropic key you're billed on → `OWNER_LLM_API_KEY` (optional `OWNER_LLM_MODEL`, default `claude-haiku-4-5`).
+4. Set all as Render environment variables (`sync: false` in `render.yaml`). Access codes are bearer secrets; the Supabase/Stripe/owner keys never reach the browser.

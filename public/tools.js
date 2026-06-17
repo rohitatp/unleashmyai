@@ -797,16 +797,16 @@ function renderClipFinder(mount) {
 // Gate: if the visitor hasn't set an API key, show a prompt to add one;
 // otherwise render the actual tool body. (callLLM / hasLlmKey come from llm.js.)
 function renderLlmGate(mount, renderBody) {
-  if (hasLlmKey()) {
+  if (canUseLlm()) {
     renderBody(mount);
     return;
   }
   renderShell(
     mount,
     `<div class="llm-gate">
-      <h3>Add your AI key to use this tool</h3>
-      <p>This tool runs on your own Claude, OpenAI, or Gemini key — stored only in your browser, never on our servers.</p>
-      <button class="primary" id="gateOpen">Add API key</button>
+      <h3>Use your own key, or buy credits</h3>
+      <p>This is an AI tool. Either bring your own Claude, OpenAI, or Gemini key (free, stored only in your browser), or buy credits and use it with no key. Pick an option in the panel.</p>
+      <button class="primary" id="gateOpen">Set up access</button>
     </div>`
   );
   document.getElementById("gateOpen").addEventListener("click", () => window.openLlmSettings());

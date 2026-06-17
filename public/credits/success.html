@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Credits — Unleash My AI</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Unleash My AI home">
+        <span class="brand-mark" aria-hidden="true"><img src="/logo.svg" alt="" width="34" height="34"></span>
+        <span>Unleash My AI</span>
+      </a>
+    </header>
+
+    <main style="max-width: 640px; margin: 0 auto; padding: 48px 20px;">
+      <div class="panel">
+        <h2 id="title">Finishing your purchase…</h2>
+        <p id="msg" class="hint">Confirming your payment with Stripe.</p>
+        <div class="field" id="codeField" hidden>
+          <label>Your access code</label>
+          <div class="output" id="code" style="min-height: auto; font-weight: 800; letter-spacing: 0.04em;"></div>
+          <p class="hint">Saved to this browser automatically. Keep it safe — paste it under “API key” on any device to use your credits.</p>
+        </div>
+        <div class="action-row">
+          <a class="button primary" href="/#tools" id="toTools" hidden>Start using credits →</a>
+        </div>
+        <p id="err" class="status"></p>
+      </div>
+    </main>
+
+    <script>
+      (async function () {
+        const params = new URLSearchParams(location.search);
+        const sessionId = params.get("session_id");
+        const title = document.getElementById("title");
+        const msg = document.getElementById("msg");
+        const err = document.getElementById("err");
+        const codeField = document.getElementById("codeField");
+        const codeEl = document.getElementById("code");
+        const toTools = document.getElementById("toTools");
+
+        if (!sessionId) {
+          title.textContent = "Missing session";
+          msg.textContent = "";
+          err.textContent = "No checkout session was found in the link.";
+          return;
+        }
+
+        let data = null;
+        for (let i = 0; i < 6; i++) {
+          try {
+            const res = await fetch(`/api/credit-code?session_id=${encodeURIComponent(sessionId)}`);
+            data = await res.json().catch(() => ({}));
+            if (res.ok && data.code) break;
+          } catch {
+            /* retry */
+          }
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+
+        if (!data || !data.code) {
+          title.textContent = "Almost there";
+          msg.textContent = "";
+          err.textContent = (data && data.error) || "We couldn't confirm the payment yet. Refresh in a few seconds.";
+          return;
+        }
+
+        // Persist in the same localStorage shape llm.js reads.
+        try {
+          const current = JSON.parse(localStorage.getItem("uma_llm") || "{}") || {};
+          current.creditCode = data.code;
+          current.mode = "credits";
+          localStorage.setItem("uma_llm", JSON.stringify(current));
+        } catch {
+          /* ignore */
+        }
+
+        title.textContent = "You're topped up";
+        msg.textContent = `${data.credits} credits added — your code is saved in this browser.`;
+        codeEl.textContent = data.code;
+        codeField.hidden = false;
+        toTools.hidden = false;
+      })();
+    </script>
+  </body>
+</html>

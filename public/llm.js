@@ -126,12 +126,16 @@ function getLlmSettings() {
   };
   const models = stored.models || {};
   const validModel = PROVIDERS[provider].models.some((m) => m.id === models[provider]);
+  const creditCode = stored.creditCode || "";
+  const mode = stored.mode === "credits" || stored.mode === "byok" ? stored.mode : creditCode ? "credits" : "byok";
 
   return {
     provider,
     keys,
     models,
-    model: validModel ? models[provider] : defaultModelFor(provider)
+    model: validModel ? models[provider] : defaultModelFor(provider),
+    creditCode,
+    mode
   };
 }
 
@@ -140,7 +144,9 @@ function saveLlmSettings(partial) {
   const next = {
     provider: partial.provider || current.provider,
     keys: Object.assign({}, current.keys, partial.keys || {}),
-    models: Object.assign({}, current.models, partial.models || {})
+    models: Object.assign({}, current.models, partial.models || {}),
+    creditCode: partial.creditCode !== undefined ? partial.creditCode : current.creditCode,
+    mode: partial.mode || current.mode
   };
   localStorage.setItem(LLM_STORAGE_KEY, JSON.stringify(next));
   return getLlmSettings();
@@ -151,8 +157,41 @@ function hasLlmKey() {
   return Boolean(s.keys[s.provider]);
 }
 
+function hasCredits() {
+  return Boolean(getLlmSettings().creditCode);
+}
+
+// True when the visitor can run an LLM tool by either route.
+function canUseLlm() {
+  const s = getLlmSettings();
+  return s.mode === "credits" ? Boolean(s.creditCode) : Boolean(s.keys[s.provider]);
+}
+
 async function callLLM({ system, prompt, maxTokens = 1024 }) {
   const settings = getLlmSettings();
+
+  // Credits mode: the server spends a credit and calls the LLM with the owner's key.
+  if (settings.mode === "credits" && settings.creditCode) {
+    let response;
+    try {
+      response = await fetch("/api/llm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: settings.creditCode, system: system || "", prompt: prompt || "", maxTokens })
+      });
+    } catch {
+      throw new Error("Could not reach the server. Check your connection and try again.");
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 402) {
+      const error = new Error(data.error || "You're out of credits. Buy more in the “API key” panel.");
+      error.code = "out-of-credits";
+      throw error;
+    }
+    if (!response.ok) throw new Error(data.error || "The credit service returned an error.");
+    return (data.text || "").trim();
+  }
+
   const provider = PROVIDERS[settings.provider];
   const key = settings.keys[settings.provider];
 

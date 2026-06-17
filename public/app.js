@@ -58,13 +58,21 @@ window.activateToolById = (id) => {
   if (tool) activateTool(tool);
 };
 
-// ---- BYOK settings modal ----
+// ---- Settings modal (bring your own key OR buy credits) ----
 const settingsOverlay = document.getElementById("settingsOverlay");
 const providerSelect = document.getElementById("settingsProvider");
 const keyInput = document.getElementById("settingsKey");
 const keyHint = document.getElementById("settingsKeyHint");
 const modelSelect = document.getElementById("settingsModel");
 const settingsStatus = document.getElementById("settingsStatus");
+const byokSection = document.getElementById("byokSection");
+const creditsSection = document.getElementById("creditsSection");
+const modeByokBtn = document.getElementById("modeByok");
+const modeCreditsBtn = document.getElementById("modeCredits");
+const creditCodeInput = document.getElementById("creditCodeInput");
+const creditBalanceHint = document.getElementById("creditBalanceHint");
+
+let currentMode = "byok";
 
 function syncModalToProvider(provider, settings) {
   const def = PROVIDERS[provider];
@@ -80,6 +88,34 @@ function syncModalToProvider(provider, settings) {
     .join("");
 }
 
+function applyMode(mode) {
+  currentMode = mode === "credits" ? "credits" : "byok";
+  byokSection.hidden = currentMode !== "byok";
+  creditsSection.hidden = currentMode !== "credits";
+  modeByokBtn.classList.toggle("active", currentMode === "byok");
+  modeCreditsBtn.classList.toggle("active", currentMode === "credits");
+}
+
+async function refreshBalance() {
+  const code = creditCodeInput.value.trim();
+  if (!code) {
+    creditBalanceHint.textContent = "After paying, your code appears on the success page. Already have one? Paste it here.";
+    return;
+  }
+  creditBalanceHint.textContent = "Checking balance…";
+  try {
+    const res = await fetch(`/api/credit-balance?code=${encodeURIComponent(code)}`);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.credits !== null && data.credits !== undefined) {
+      creditBalanceHint.textContent = `${data.credits} credits remaining.`;
+    } else {
+      creditBalanceHint.textContent = "Code not found — double-check it.";
+    }
+  } catch {
+    creditBalanceHint.textContent = "Couldn't check the balance right now.";
+  }
+}
+
 function openLlmSettings() {
   const settings = getLlmSettings();
   providerSelect.innerHTML = PROVIDER_ORDER.map(
@@ -87,8 +123,11 @@ function openLlmSettings() {
   ).join("");
   providerSelect.value = settings.provider;
   syncModalToProvider(settings.provider, settings);
+  creditCodeInput.value = settings.creditCode || "";
+  applyMode(settings.mode);
   settingsStatus.textContent = "";
   settingsOverlay.hidden = false;
+  if (settings.creditCode) refreshBalance();
 }
 window.openLlmSettings = openLlmSettings;
 
@@ -105,29 +144,57 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !settingsOverlay.hidden) closeLlmSettings();
 });
 
-providerSelect.addEventListener("change", () => {
-  syncModalToProvider(providerSelect.value, getLlmSettings());
+modeByokBtn.addEventListener("click", () => applyMode("byok"));
+modeCreditsBtn.addEventListener("click", () => applyMode("credits"));
+providerSelect.addEventListener("change", () => syncModalToProvider(providerSelect.value, getLlmSettings()));
+creditCodeInput.addEventListener("change", refreshBalance);
+
+document.getElementById("buyCredits").addEventListener("click", async () => {
+  settingsStatus.textContent = "Opening secure checkout…";
+  try {
+    const res = await fetch("/api/create-checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}"
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) {
+      settingsStatus.textContent = data.error || "Checkout isn't available yet.";
+      return;
+    }
+    window.location.href = data.url;
+  } catch {
+    settingsStatus.textContent = "Couldn't start checkout. Please try again.";
+  }
 });
 
 document.getElementById("saveSettings").addEventListener("click", () => {
-  const provider = providerSelect.value;
-  const key = keyInput.value.trim();
-  saveLlmSettings({
-    provider,
-    keys: { [provider]: key },
-    models: { [provider]: modelSelect.value }
-  });
-  settingsStatus.textContent = key
-    ? "Saved. You can close this and use the AI tools."
-    : "Saved provider/model (no key set yet).";
+  if (currentMode === "credits") {
+    const code = creditCodeInput.value.trim();
+    saveLlmSettings({ creditCode: code, mode: "credits" });
+    settingsStatus.textContent = code ? "Saved — credits will power the AI tools." : "Saved (no code entered yet).";
+    if (code) refreshBalance();
+  } else {
+    const provider = providerSelect.value;
+    const key = keyInput.value.trim();
+    saveLlmSettings({ provider, keys: { [provider]: key }, models: { [provider]: modelSelect.value }, mode: "byok" });
+    settingsStatus.textContent = key ? "Saved — your key will power the AI tools." : "Saved provider/model (no key set yet).";
+  }
   activateTool(findToolFromLocation(), false); // refresh so LLM-tool gates update
 });
 
 document.getElementById("clearSettings").addEventListener("click", () => {
-  const provider = providerSelect.value;
-  saveLlmSettings({ keys: { [provider]: "" } });
-  keyInput.value = "";
-  settingsStatus.textContent = `Cleared your ${PROVIDERS[provider].label} key.`;
+  if (currentMode === "credits") {
+    saveLlmSettings({ creditCode: "" });
+    creditCodeInput.value = "";
+    creditBalanceHint.textContent = "Cleared your access code.";
+    settingsStatus.textContent = "Cleared your access code.";
+  } else {
+    const provider = providerSelect.value;
+    saveLlmSettings({ keys: { [provider]: "" } });
+    keyInput.value = "";
+    settingsStatus.textContent = `Cleared your ${PROVIDERS[provider].label} key.`;
+  }
   activateTool(findToolFromLocation(), false);
 });
 

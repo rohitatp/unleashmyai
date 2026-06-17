@@ -2,6 +2,20 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { fetchYoutubeTranscript } = require("./youtube");
+const credits = require("./credits");
+
+// Read a request body as a raw string (used for JSON parsing and Stripe HMAC).
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (chunk) => {
+      data += chunk;
+      if (data.length > 1_000_000) req.destroy(); // ~1MB guard
+    });
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+}
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -118,6 +132,61 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, error.statusCode || 500, {
         error: error.message || "Something went wrong while loading the transcript."
       });
+    }
+    return;
+  }
+
+  // ---- Paid credits (Stripe + Supabase) ----
+
+  if (requestUrl.pathname === "/api/create-checkout" && req.method === "POST") {
+    try {
+      const proto = req.headers["x-forwarded-proto"] || "https";
+      const origin = `${proto}://${req.headers.host}`;
+      sendJson(res, 200, await credits.createCheckout(origin));
+    } catch (error) {
+      sendJson(res, error.statusCode || 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/stripe-webhook" && req.method === "POST") {
+    try {
+      const raw = await readRawBody(req);
+      sendJson(res, 200, await credits.handleStripeWebhook(raw, req.headers["stripe-signature"] || ""));
+    } catch (error) {
+      sendJson(res, error.statusCode || 400, { error: error.message });
+    }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/credit-code") {
+    try {
+      sendJson(res, 200, await credits.getCodeForSession(requestUrl.searchParams.get("session_id")));
+    } catch (error) {
+      sendJson(res, error.statusCode || 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/credit-balance") {
+    try {
+      sendJson(res, 200, await credits.getBalance(requestUrl.searchParams.get("code")));
+    } catch (error) {
+      sendJson(res, error.statusCode || 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/llm" && req.method === "POST") {
+    if (isRateLimited(clientIp(req), Date.now())) {
+      sendJson(res, 429, { error: "Too many requests. Please slow down and try again." });
+      return;
+    }
+    try {
+      const body = JSON.parse((await readRawBody(req)) || "{}");
+      sendJson(res, 200, await credits.spendAndComplete(body));
+    } catch (error) {
+      sendJson(res, error.statusCode || 500, { error: error.message || "Request failed." });
     }
     return;
   }

@@ -646,3 +646,28 @@ button:disabled {
   color: #5f5235;
   font-size: 0.9rem;
 }
+
+/* Settings modal: mode toggle (own key / credits) */
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.mode-tab {
+  flex: 1;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  background: #f1efe8;
+  color: var(--muted);
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.mode-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}

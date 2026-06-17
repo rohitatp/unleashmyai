@@ -1,0 +1,23 @@
+{
+  "name": "unleashmyai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A free toolbox of code-powered AI-adjacent utilities for creators and professionals.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js"
+  },
+  "keywords": [
+    "ai-tools",
+    "speech-to-text",
+    "text-to-speech",
+    "youtube-transcript",
+    "creator-tools"
+  ],
+  "author": "rohitatp",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}

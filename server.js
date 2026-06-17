@@ -1,7 +1,7 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const { fetchYoutubeTranscript } = require("./youtube");
+const { fetchYoutubeTranscript, inspectVideo } = require("./youtube");
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -92,6 +92,18 @@ const server = http.createServer(async (req, res) => {
 
   if (requestUrl.pathname === "/api/health") {
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  // TEMPORARY diagnostic endpoint — remove after confirming the transcript path.
+  if (requestUrl.pathname === "/api/youtube-debug") {
+    try {
+      const id = requestUrl.searchParams.get("id") || "jNQXAC9IVRw";
+      const report = await inspectVideo(id);
+      sendJson(res, 200, report);
+    } catch (error) {
+      sendJson(res, 500, { error: error.message });
+    }
     return;
   }
 

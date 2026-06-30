@@ -137,6 +137,7 @@ select {
   font-size: clamp(3rem, 8vw, 6.7rem);
   line-height: 0.94;
   letter-spacing: 0;
+  overflow-wrap: break-word;
 }
 
 .hero-text {
@@ -438,6 +439,8 @@ button:disabled {
   background: #fffaf2;
   padding: 16px;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .result-list {
@@ -518,22 +521,73 @@ button:disabled {
 
   .top-nav {
     width: 100%;
-    justify-content: space-between;
-    gap: 10px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-top: 36px;
   }
 
   .hero h1 {
-    font-size: clamp(2.7rem, 17vw, 4.2rem);
+    font-size: clamp(2.2rem, 12vw, 3.6rem);
   }
 
-  .tool-list,
+  .hero-text {
+    font-size: 1.05rem;
+  }
+
+  .tool-shell {
+    padding: 24px 16px;
+  }
+
+  .tool-workspace {
+    min-height: auto;
+  }
+
   .field-grid {
     grid-template-columns: 1fr;
   }
 
-  .button,
-  button {
+  /* Compact tool list on phones: a single column of titles (summaries hidden)
+     so the active tool's workspace isn't buried under a long list. */
+  .tool-list {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-tab {
+    min-height: 0;
+    padding: 12px 14px;
+  }
+
+  .tool-tab span {
+    display: none;
+  }
+
+  /* Full-width primary/secondary actions on phones — but leave the header
+     button, modal close, and mode tabs at their natural size. */
+  .hero-actions .button,
+  .action-row .button,
+  .action-row button {
     width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .hero h1 {
+    font-size: clamp(2rem, 10.5vw, 2.9rem);
+  }
+
+  .tool-shell,
+  .tool-workspace {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .modal-card {
+    padding: 16px;
   }
 }
 

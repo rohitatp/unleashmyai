@@ -25,16 +25,24 @@ function renderToolList(activeId) {
     }
     byCategory.get(tool.category).push(tool);
   }
+  // Keep dropdowns collapsed by default; preserve whichever one the user opened.
+  const openCats = new Set(
+    Array.from(document.querySelectorAll(".tool-cat[open]")).map((d) => d.dataset.cat)
+  );
+
   toolList.innerHTML = order
     .map((category) => {
       const tools = byCategory.get(category);
       const llm = tools.filter((t) => t.llm).length;
       const free = tools.length - llm;
-      const open = tools.some((t) => t.id === activeId); // only the active category open
+      const counts = [];
+      if (llm) counts.push(`${llm} LLM`);
+      if (free) counts.push(`${free} free`);
+      const open = openCats.has(category);
       return `<details class="tool-cat" data-cat="${escapeHtml(category)}" ${open ? "open" : ""}>
         <summary>
           <span class="tool-cat-name">${escapeHtml(category)}</span>
-          <span class="tool-cat-count">${llm} LLM · ${free} free</span>
+          <span class="tool-cat-count">${counts.join(" · ")}</span>
         </summary>
         ${tools
           .map(

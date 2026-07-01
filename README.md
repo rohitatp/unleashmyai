@@ -59,5 +59,5 @@ How it works:
 Setup (no npm deps — REST + `node:crypto`):
 1. **Supabase** — create a project, run [`supabase.sql`](supabase.sql) in the SQL editor. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (server-only).
 2. **Stripe** (test mode first) — create a $20 one-time Price (1000 credits) → `STRIPE_PRICE_ID`; copy the secret key → `STRIPE_SECRET_KEY`; add a webhook for `checkout.session.completed` pointing at `/api/stripe-webhook` → `STRIPE_WEBHOOK_SECRET`.
-3. **Owner LLM** — an Anthropic key you're billed on → `OWNER_LLM_API_KEY` (optional `OWNER_LLM_MODEL`, default `claude-haiku-4-5`).
+3. **Owner LLM** — the key that pays for credit users. Set `OWNER_LLM_API_KEY`, and optionally `OWNER_LLM_PROVIDER` (`anthropic` | `openai` | `gemini`, default `anthropic`) and `OWNER_LLM_MODEL`. Defaults per provider are the cheapest sensible model: `claude-haiku-4-5`, `gpt-4o-mini`, `gemini-2.0-flash` — e.g. set `OWNER_LLM_PROVIDER=gemini` for near-zero cost per call.
 4. Set all as Render environment variables (`sync: false` in `render.yaml`). Access codes are bearer secrets; the Supabase/Stripe/owner keys never reach the browser.

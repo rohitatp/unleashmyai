@@ -43,6 +43,38 @@ function sendText(res, statusCode, message) {
   res.end(message);
 }
 
+// Serve a file with revalidation caching: browsers must check with the server
+// (Cache-Control: no-cache), and we return 304 when unchanged (via Last-Modified)
+// so a deploy shows up immediately without a manual hard-refresh, cheaply.
+function sendFile(filePath, req, res) {
+  fs.stat(filePath, (err, stat) => {
+    if (err || !stat.isFile()) {
+      sendText(res, 404, "Not found");
+      return;
+    }
+    const extension = path.extname(filePath).toLowerCase();
+    const lastModified = stat.mtime.toUTCString();
+    const ims = req.headers["if-modified-since"];
+    if (ims && Math.floor(new Date(ims).getTime() / 1000) >= Math.floor(stat.mtime.getTime() / 1000)) {
+      res.writeHead(304, { "Cache-Control": "no-cache", "Last-Modified": lastModified });
+      res.end();
+      return;
+    }
+    fs.readFile(filePath, (readError, data) => {
+      if (readError) {
+        sendText(res, 404, "Not found");
+        return;
+      }
+      res.writeHead(200, {
+        "content-type": MIME_TYPES[extension] || "application/octet-stream",
+        "Cache-Control": "no-cache",
+        "Last-Modified": lastModified
+      });
+      res.end(data);
+    });
+  });
+}
+
 function serveStatic(req, res) {
   const requestedPath = decodeURIComponent(new URL(req.url, `http://${req.headers.host}`).pathname);
   const normalizedPath = requestedPath === "/" ? "/index.html" : requestedPath;
@@ -53,26 +85,12 @@ function serveStatic(req, res) {
     return;
   }
 
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
-      fs.readFile(path.join(PUBLIC_DIR, "index.html"), (fallbackError, fallbackData) => {
-        if (fallbackError) {
-          sendText(res, 404, "Not found");
-          return;
-        }
-
-        res.writeHead(200, { "content-type": MIME_TYPES[".html"] });
-        res.end(fallbackData);
-      });
-      return;
+  fs.stat(filePath, (err, stat) => {
+    if (!err && stat.isFile()) {
+      sendFile(filePath, req, res);
+    } else {
+      sendFile(path.join(PUBLIC_DIR, "index.html"), req, res); // SPA fallback
     }
-
-    const extension = path.extname(filePath).toLowerCase();
-    res.writeHead(200, {
-      "content-type": MIME_TYPES[extension] || "application/octet-stream",
-      "cache-control": extension === ".html" ? "no-store" : "public, max-age=3600"
-    });
-    res.end(data);
   });
 }
 

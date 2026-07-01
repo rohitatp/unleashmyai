@@ -21,9 +21,17 @@ function cfg() {
     supabaseUrl: (process.env.SUPABASE_URL || "").replace(/\/$/, ""),
     supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
     ownerLlmKey: process.env.OWNER_LLM_API_KEY || "",
-    ownerModel: process.env.OWNER_LLM_MODEL || "claude-haiku-4-5"
+    ownerProvider: (process.env.OWNER_LLM_PROVIDER || "anthropic").toLowerCase(),
+    ownerModel: process.env.OWNER_LLM_MODEL || ""
   };
 }
+
+// Cheapest sensible default model per provider (the owner pays for credit users).
+const DEFAULT_OWNER_MODEL = {
+  anthropic: "claude-haiku-4-5",
+  openai: "gpt-4o-mini",
+  gemini: "gemini-2.0-flash"
+};
 
 function creditsConfigured() {
   const c = cfg();
@@ -193,26 +201,53 @@ async function getBalance(code) {
   return { credits: credits === undefined ? null : credits };
 }
 
+// Owner-paid completion. Provider is chosen with OWNER_LLM_PROVIDER
+// (anthropic | openai | gemini) so the owner can use a near-free model.
 async function ownerLlmComplete({ system, prompt, maxTokens }) {
-  const { ownerLlmKey, ownerModel } = cfg();
+  const { ownerLlmKey, ownerProvider, ownerModel } = cfg();
+  const model = ownerModel || DEFAULT_OWNER_MODEL[ownerProvider] || DEFAULT_OWNER_MODEL.anthropic;
+  const tokens = maxTokens || 1024;
+
+  if (ownerProvider === "openai") {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${ownerLlmKey}` },
+      body: JSON.stringify({
+        model,
+        max_tokens: tokens,
+        messages: [{ role: "system", content: system || "" }, { role: "user", content: prompt || "" }]
+      })
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw fail((json.error && json.error.message) || `Model error ${response.status}.`, 502);
+    return (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || "";
+  }
+
+  if (ownerProvider === "gemini") {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(ownerLlmKey)}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system || "" }] },
+        contents: [{ role: "user", parts: [{ text: prompt || "" }] }],
+        generationConfig: { maxOutputTokens: tokens }
+      })
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw fail((json.error && json.error.message) || `Model error ${response.status}.`, 502);
+    const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
+    return parts.map((p) => p.text || "").join("");
+  }
+
+  // anthropic (default)
   const response = await fetch(ANTHROPIC_API, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": ownerLlmKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: ownerModel,
-      max_tokens: maxTokens || 1024,
-      system: system || "",
-      messages: [{ role: "user", content: prompt || "" }]
-    })
+    headers: { "content-type": "application/json", "x-api-key": ownerLlmKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model, max_tokens: tokens, system: system || "", messages: [{ role: "user", content: prompt || "" }] })
   });
   const json = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw fail((json.error && json.error.message) || `Model error ${response.status}.`, 502);
-  }
+  if (!response.ok) throw fail((json.error && json.error.message) || `Model error ${response.status}.`, 502);
   const block = Array.isArray(json.content) ? json.content.find((b) => b.type === "text") : null;
   return block ? block.text : "";
 }

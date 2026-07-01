@@ -29,5 +29,7 @@ services:
         sync: false
       - key: OWNER_LLM_API_KEY
         sync: false
+      - key: OWNER_LLM_PROVIDER
+        sync: false
       - key: OWNER_LLM_MODEL
         sync: false

@@ -2,6 +2,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const credits = require("./credits");
+const auth = require("./auth");
 
 // Read a request body as a raw string (used for JSON parsing and Stripe HMAC).
 function readRawBody(req) {
@@ -177,6 +178,23 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, await credits.spendAndComplete(body));
     } catch (error) {
       sendJson(res, error.statusCode || 500, { error: error.message || "Request failed." });
+    }
+    return;
+  }
+
+  // ---- Optional Google login ----
+
+  if (requestUrl.pathname === "/api/config") {
+    sendJson(res, 200, { googleClientId: auth.googleClientId() });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/auth/google" && req.method === "POST") {
+    try {
+      const body = JSON.parse((await readRawBody(req)) || "{}");
+      sendJson(res, 200, await auth.loginWithGoogle(body.credential));
+    } catch (error) {
+      sendJson(res, error.statusCode || 500, { error: error.message || "Sign-in failed." });
     }
     return;
   }

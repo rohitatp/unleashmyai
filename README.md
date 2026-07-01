@@ -61,3 +61,15 @@ Setup (no npm deps — REST + `node:crypto`):
 2. **Stripe** (test mode first) — create a $20 one-time Price (1000 credits) → `STRIPE_PRICE_ID`; copy the secret key → `STRIPE_SECRET_KEY`; add a webhook for `checkout.session.completed` pointing at `/api/stripe-webhook` → `STRIPE_WEBHOOK_SECRET`.
 3. **Owner LLM** — the key that pays for credit users. Set `OWNER_LLM_API_KEY`, and optionally `OWNER_LLM_PROVIDER` (`anthropic` | `openai` | `gemini`, default `anthropic`) and `OWNER_LLM_MODEL`. Defaults per provider are the cheapest sensible model: `claude-haiku-4-5`, `gpt-4o-mini`, `gemini-2.0-flash` — e.g. set `OWNER_LLM_PROVIDER=gemini` for near-zero cost per call.
 4. Set all as Render environment variables (`sync: false` in `render.yaml`). Access codes are bearer secrets; the Supabase/Stripe/owner keys never reach the browser.
+
+## Login with Google (optional)
+
+Visitors can optionally **Sign in with Google**. BYOK and guest usage keep working — login is not required.
+
+How it works: Google returns a signed **ID token** to the browser; the server verifies it (Google's `tokeninfo` + audience/issuer checks) and issues a stateless HMAC-signed session (`auth.js`). No passwords, no database needed for basic identity.
+
+Setup:
+1. **Google Cloud Console** → APIs & Services → Credentials → *Create OAuth client ID* → **Web application**. Add `https://unleashmyai.com` (and `www`) as an *Authorized JavaScript origin*. Copy the **Client ID**.
+2. Render env: `GOOGLE_CLIENT_ID` = that client ID (public), `SESSION_SECRET` = a long random string (secret, e.g. `openssl rand -hex 32`).
+
+Until both are set, the sign-in button stays hidden and `/api/auth/google` returns a clean 503. Note: Google login needs a Google account — for phone-only users you'd add email/SMS OTP separately.

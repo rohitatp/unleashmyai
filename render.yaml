@@ -33,3 +33,8 @@ services:
         sync: false
       - key: OWNER_LLM_MODEL
         sync: false
+      # Optional "Sign in with Google"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: SESSION_SECRET
+        sync: false

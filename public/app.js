@@ -16,13 +16,31 @@ function findToolFromLocation() {
 }
 
 function renderToolList(activeId) {
-  toolList.innerHTML = TOOL_DEFINITIONS.map(
-    (tool) =>
-      `<button class="tool-tab ${tool.id === activeId ? "active" : ""}" data-tool-id="${tool.id}">
-        <strong>${escapeHtml(tool.title)}${tool.llm ? '<span class="llm-badge">LLM</span>' : ""}</strong>
-        <span>${escapeHtml(tool.summary)}</span>
-      </button>`
-  ).join("");
+  const order = [];
+  const byCategory = new Map();
+  for (const tool of TOOL_DEFINITIONS) {
+    if (!byCategory.has(tool.category)) {
+      byCategory.set(tool.category, []);
+      order.push(tool.category);
+    }
+    byCategory.get(tool.category).push(tool);
+  }
+  toolList.innerHTML = order
+    .map(
+      (category) =>
+        `<p class="tool-group">${escapeHtml(category)}</p>` +
+        byCategory
+          .get(category)
+          .map(
+            (tool) =>
+              `<button class="tool-tab ${tool.id === activeId ? "active" : ""}" data-tool-id="${tool.id}">
+                <strong>${escapeHtml(tool.title)}${tool.llm ? '<span class="llm-badge">LLM</span>' : ""}</strong>
+                <span>${escapeHtml(tool.summary)}</span>
+              </button>`
+          )
+          .join("")
+    )
+    .join("");
 }
 
 function activateTool(tool, updateHistory = true) {

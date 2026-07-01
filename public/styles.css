@@ -738,3 +738,54 @@ button:disabled {
 .tool-group:first-child {
   margin-top: 4px;
 }
+
+/* Collapsible tool categories (dropdowns) */
+.tool-cat {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf9;
+  overflow: hidden;
+}
+.tool-cat > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  font-weight: 800;
+  user-select: none;
+}
+.tool-cat > summary::-webkit-details-marker { display: none; }
+.tool-cat-name::before {
+  content: "\25B8"; /* ▸ */
+  color: var(--muted);
+  margin-right: 8px;
+  display: inline-block;
+  transition: transform 120ms ease;
+}
+.tool-cat[open] .tool-cat-name::before { transform: rotate(90deg); }
+.tool-cat-count {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.tool-cat[open] > summary { border-bottom: 1px solid var(--line); }
+.tool-cat > summary:hover { background: #f4f1ea; }
+
+/* Tool buttons inside a dropdown */
+.tool-cat .tool-tab {
+  min-height: auto;
+  border: none;
+  border-top: 1px solid #f1ece1;
+  border-radius: 0;
+  padding: 10px 14px;
+}
+.tool-cat .tool-tab:hover,
+.tool-cat .tool-tab.active {
+  background: #eef8f6;
+  border-color: #f1ece1;
+}

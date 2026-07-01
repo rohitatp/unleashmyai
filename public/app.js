@@ -25,12 +25,24 @@ function renderToolList(activeId) {
     }
     byCategory.get(tool.category).push(tool);
   }
+  // Preserve which dropdowns the user had open across re-renders.
+  const openCats = new Set(
+    Array.from(document.querySelectorAll(".tool-cat[open]")).map((d) => d.dataset.cat)
+  );
+
   toolList.innerHTML = order
-    .map(
-      (category) =>
-        `<p class="tool-group">${escapeHtml(category)}</p>` +
-        byCategory
-          .get(category)
+    .map((category) => {
+      const tools = byCategory.get(category);
+      const llm = tools.filter((t) => t.llm).length;
+      const free = tools.length - llm;
+      const hasActive = tools.some((t) => t.id === activeId);
+      const open = openCats.has(category) || hasActive;
+      return `<details class="tool-cat" data-cat="${escapeHtml(category)}" ${open ? "open" : ""}>
+        <summary>
+          <span class="tool-cat-name">${escapeHtml(category)}</span>
+          <span class="tool-cat-count">${llm} LLM · ${free} free</span>
+        </summary>
+        ${tools
           .map(
             (tool) =>
               `<button class="tool-tab ${tool.id === activeId ? "active" : ""}" data-tool-id="${tool.id}">
@@ -38,8 +50,9 @@ function renderToolList(activeId) {
                 <span>${escapeHtml(tool.summary)}</span>
               </button>`
           )
-          .join("")
-    )
+          .join("")}
+      </details>`;
+    })
     .join("");
 }
 

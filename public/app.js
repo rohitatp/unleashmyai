@@ -25,18 +25,12 @@ function renderToolList(activeId) {
     }
     byCategory.get(tool.category).push(tool);
   }
-  // Preserve which dropdowns the user had open across re-renders.
-  const openCats = new Set(
-    Array.from(document.querySelectorAll(".tool-cat[open]")).map((d) => d.dataset.cat)
-  );
-
   toolList.innerHTML = order
     .map((category) => {
       const tools = byCategory.get(category);
       const llm = tools.filter((t) => t.llm).length;
       const free = tools.length - llm;
-      const hasActive = tools.some((t) => t.id === activeId);
-      const open = openCats.has(category) || hasActive;
+      const open = tools.some((t) => t.id === activeId); // only the active category open
       return `<details class="tool-cat" data-cat="${escapeHtml(category)}" ${open ? "open" : ""}>
         <summary>
           <span class="tool-cat-name">${escapeHtml(category)}</span>
@@ -54,6 +48,16 @@ function renderToolList(activeId) {
       </details>`;
     })
     .join("");
+
+  // Accordion: opening one dropdown closes the others.
+  toolList.querySelectorAll(".tool-cat").forEach((detail) => {
+    detail.addEventListener("toggle", () => {
+      if (!detail.open) return;
+      toolList.querySelectorAll(".tool-cat[open]").forEach((other) => {
+        if (other !== detail) other.open = false;
+      });
+    });
+  });
 }
 
 function activateTool(tool, updateHistory = true) {

@@ -4,18 +4,14 @@ Free AI tools for creators, founders, and busy professionals.
 
 A growing toolbox of useful utilities. Today's tools run on browser APIs, deterministic templates, transcript parsing, and lightweight text heuristics; LLM-powered tools are being added over time. Any tool powered by a large language model is marked with an **LLM** badge in the UI.
 
-## Tools included
+Everyday, high-frequency tools. Most are LLM-powered (flagged with an **LLM** badge) and run through the shared `callLLM()` helper — either the visitor's own key or credits. Two are browser-native (no key needed).
 
-- Speech to Text: browser-native speech recognition with transcript export.
-- Text to Speech: browser-native speech synthesis with voice, rate, pitch, and download-friendly text.
-- YouTube Transcript: server-side caption lookup via the Supadata API (set `SUPADATA_API_KEY`).
-- YouTube Summarizer (LLM): fetches the transcript, then summarizes it with the visitor's own AI key.
-- Transcript Summarizer (LLM): paste any transcript/long text and get a TL;DR, key points, and chapters.
-- Viral Social Media Post Creator: deterministic post generation for LinkedIn, X, Instagram, and Facebook.
-- AI Post Generator (LLM): one idea into platform-specific posts written by the visitor's chosen model.
-- Voice to LinkedIn Post: speech capture plus rule-based LinkedIn post generation.
-- Content Repurposer: turn long text into platform-specific content using templates.
-- Clip Finder: find likely short-form clips from timestamped transcripts using scoring rules.
+**Writing:** Email Writer & Replier · Rewrite & Tone · Reply Generator · Proofread & Polish.
+**Summaries:** Summarize Anything (paste or speak; optional translation and read-aloud) · Meeting Notes → Actions.
+**Voice:** Voice Note → Notes & Tasks · Speech to Text (browser) · Text to Speech (browser).
+**Social & content:** AI Post Generator · Repurpose Content · Headlines & Hooks.
+
+Adding a tool is a compact config passed to `renderPromptTool()` in `public/tools.js` (input label, control selects/checkboxes, and a `build(input, values)` that returns the prompt).
 
 ## Run locally
 
@@ -37,13 +33,7 @@ PORT=4000 npm start
 
 ## Deploy notes
 
-The frontend is static, but the YouTube transcript tool needs the Node server route:
-
-```text
-/api/youtube-transcript?url=https://www.youtube.com/watch?v=VIDEO_ID
-```
-
-For full functionality, deploy to a Node-capable host such as Render, Railway, Fly.io, or a VPS. GitHub Pages can host the static interface, but it cannot run the transcript API server.
+The frontend is static, but the credits paywall needs the Node server routes (`/api/create-checkout`, `/api/stripe-webhook`, `/api/llm`, ...). Deploy to a Node-capable host such as Render, Railway, Fly.io, or a VPS. BYOK tools work anywhere; the credits routes stay dormant (clean 503s) until the Stripe/Supabase env vars are set.
 
 ## AI tools (bring your own key)
 

@@ -1,89 +1,40 @@
 // Each tool declares whether it is powered by a large language model via `llm`.
-// When `llm: true`, a slanted "LLM" badge is shown on the tool tab and heading
-// (see app.js). Today's tools run on code; set `llm: true` when adding LLM tools.
+// LLM tools show a slanted "LLM" badge and run through callLLM() (BYOK or credits).
 const TOOL_DEFINITIONS = [
-  {
-    id: "speech-to-text",
-    title: "Speech to Text",
-    category: "Voice Tools",
-    summary: "Record speech from your microphone and turn it into editable text.",
-    llm: false,
-    render: renderSpeechToText
-  },
-  {
-    id: "text-to-speech",
-    title: "Text to Speech",
-    category: "Voice Tools",
-    summary: "Read text aloud using browser voices, speed, and pitch controls.",
-    llm: false,
-    render: renderTextToSpeech
-  },
-  {
-    id: "youtube-transcript",
-    title: "YouTube Transcript",
-    category: "YouTube Tools",
-    summary: "Fetch public YouTube captions and export clean or timestamped text.",
-    llm: false,
-    render: renderYoutubeTranscript
-  },
-  {
-    id: "youtube-summarizer",
-    title: "YouTube Summarizer",
-    category: "YouTube Tools",
-    summary: "Paste a URL — get a TL;DR, key points, and chapters from the transcript.",
-    llm: true,
-    render: renderYoutubeSummarizer
-  },
-  {
-    id: "transcript-summarizer",
-    title: "Transcript Summarizer",
-    category: "YouTube Tools",
-    summary: "Paste any transcript or long text and get a clean summary with key points.",
-    llm: true,
-    render: renderTranscriptSummarizer
-  },
-  {
-    id: "viral-post-generator",
-    title: "Viral Post Generator",
-    category: "Social Media Tools",
-    summary: "Create platform-specific posts from one idea using deterministic templates.",
-    llm: false,
-    render: renderViralPostGenerator
-  },
-  {
-    id: "ai-post-generator",
-    title: "AI Post Generator",
-    category: "Social Media Tools",
-    summary: "Turn one idea into platform-specific posts written by your chosen AI model.",
-    llm: true,
-    render: renderAiPostGenerator
-  },
-  {
-    id: "voice-to-linkedin-post",
-    title: "Voice to LinkedIn Post",
-    category: "Social Media Tools",
-    summary: "Capture a voice note and shape it into a clean, structured LinkedIn post.",
-    llm: false,
-    render: renderVoiceToLinkedin
-  },
-  {
-    id: "content-repurposer",
-    title: "Content Repurposer",
-    category: "Creator Tools",
-    summary: "Turn long text into posts, threads, captions, and newsletter blurbs.",
-    llm: false,
-    render: renderContentRepurposer
-  },
-  {
-    id: "clip-finder",
-    title: "Clip Finder",
-    category: "Creator Tools",
-    summary: "Score transcript moments and find likely short-form clip candidates.",
-    llm: false,
-    render: renderClipFinder
-  }
+  // Writing
+  { id: "email-assistant", title: "Email Writer & Replier", category: "Writing Tools",
+    summary: "Write a new email or reply to one, with tone and length controls.", llm: true, render: renderEmailAssistant },
+  { id: "rewrite", title: "Rewrite & Tone", category: "Writing Tools",
+    summary: "Make any text clearer, shorter, friendlier, or more professional.", llm: true, render: renderRewrite },
+  { id: "reply-generator", title: "Reply Generator", category: "Writing Tools",
+    summary: "Paste a message or thread and get three ready-to-send replies.", llm: true, render: renderReplyGenerator },
+  { id: "proofread", title: "Proofread & Polish", category: "Writing Tools",
+    summary: "Fix grammar and clarity, and see exactly what changed.", llm: true, render: renderProofread },
+
+  // Summaries
+  { id: "summarize", title: "Summarize Anything", category: "Summaries",
+    summary: "Paste or speak text and get a TL;DR, key points, and actions — with translation.", llm: true, render: renderSummarize },
+  { id: "meeting-notes", title: "Meeting Notes → Actions", category: "Summaries",
+    summary: "Turn raw notes into a summary, decisions, action items, and a follow-up email.", llm: true, render: renderMeetingNotes },
+
+  // Voice
+  { id: "voice-notes", title: "Voice Note → Notes & Tasks", category: "Voice Tools",
+    summary: "Record a voice note and get a clean write-up plus a task checklist.", llm: true, render: renderVoiceNotes },
+  { id: "speech-to-text", title: "Speech to Text", category: "Voice Tools",
+    summary: "Record speech from your microphone and turn it into editable text.", llm: false, render: renderSpeechToText },
+  { id: "text-to-speech", title: "Text to Speech", category: "Voice Tools",
+    summary: "Read text aloud using browser voices, speed, and pitch controls.", llm: false, render: renderTextToSpeech },
+
+  // Social & content
+  { id: "ai-post-generator", title: "AI Post Generator", category: "Social & Content",
+    summary: "Turn one idea into platform-specific posts written by your chosen AI model.", llm: true, render: renderAiPostGenerator },
+  { id: "repurpose", title: "Repurpose Content", category: "Social & Content",
+    summary: "Turn long content into a thread, carousel, newsletter, or shorts script.", llm: true, render: renderRepurpose },
+  { id: "headlines", title: "Headlines & Hooks", category: "Social & Content",
+    summary: "Generate a batch of titles, subject lines, or hooks to choose from.", llm: true, render: renderHeadlines }
 ];
 
+// ---- shared helpers ----
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -91,88 +42,6 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-function slugify(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .slice(0, 48);
-}
-
-function words(text) {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/https?:\/\/\S+/g, "")
-    .replace(/[^a-z0-9\s'-]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function sentences(text) {
-  return String(text || "")
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-}
-
-function keywordList(text, limit = 8) {
-  const stop = new Set([
-    "about",
-    "after",
-    "again",
-    "also",
-    "because",
-    "before",
-    "being",
-    "between",
-    "could",
-    "every",
-    "from",
-    "have",
-    "into",
-    "just",
-    "like",
-    "more",
-    "most",
-    "only",
-    "other",
-    "over",
-    "should",
-    "that",
-    "their",
-    "there",
-    "these",
-    "they",
-    "this",
-    "through",
-    "what",
-    "when",
-    "where",
-    "which",
-    "while",
-    "with",
-    "would",
-    "your"
-  ]);
-  const counts = new Map();
-
-  for (const word of words(text)) {
-    if (word.length < 4 || stop.has(word)) continue;
-    counts.set(word, (counts.get(word) || 0) + 1);
-  }
-
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, limit)
-    .map(([word]) => word);
-}
-
-function firstMeaningfulSentence(text) {
-  return sentences(text).find((sentence) => sentence.length > 32) || String(text || "").trim();
 }
 
 function copyText(text, statusElement) {
@@ -202,6 +71,449 @@ function renderShell(mount, html) {
   mount.innerHTML = html;
 }
 
+function speakText(text) {
+  if (!("speechSynthesis" in window) || !text) return;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+// Attach push-to-talk dictation that appends into a textarea.
+function attachDictation(button, target, statusEl) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    button.disabled = true;
+    button.textContent = "Voice input not supported";
+    return;
+  }
+  let recognition = null;
+  let listening = false;
+  button.addEventListener("click", () => {
+    if (listening && recognition) {
+      recognition.stop();
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let base = target.value ? `${target.value.trim()} ` : "";
+    recognition.onstart = () => {
+      listening = true;
+      button.textContent = "Stop recording";
+      if (statusEl) statusEl.textContent = "Listening…";
+    };
+    recognition.onerror = (event) => {
+      if (statusEl) statusEl.textContent = `Mic error: ${event.error}`;
+    };
+    recognition.onend = () => {
+      listening = false;
+      button.textContent = "Record voice";
+      if (statusEl) statusEl.textContent = "";
+    };
+    recognition.onresult = (event) => {
+      let interim = "";
+      let finalAdd = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalAdd += `${t} `;
+        else interim += t;
+      }
+      if (finalAdd) base += finalAdd;
+      target.value = `${base}${interim}`.replace(/\s+/g, " ").trimStart();
+    };
+    recognition.start();
+  });
+}
+
+// ---- LLM tool gate + generic engine ----
+function renderLlmGate(mount, renderBody) {
+  if (canUseLlm()) {
+    renderBody(mount);
+    return;
+  }
+  renderShell(
+    mount,
+    `<div class="llm-gate">
+      <h3>Use your own key, or buy credits</h3>
+      <p>This is an AI tool. Either bring your own Claude, OpenAI, or Gemini key (free, stored only in your browser), or buy credits and use it with no key. Pick an option in the panel.</p>
+      <button class="primary" id="gateOpen">Set up access</button>
+    </div>`
+  );
+  document.getElementById("gateOpen").addEventListener("click", () => window.openLlmSettings());
+}
+
+// cfg: { inputLabel, placeholder, inputHeading?, runLabel?, maxTokens?, voiceInput?, readAloud?,
+//        controls: [{id,label,type:"select",options:[]} | {id,label,type:"checkboxes",options:[]}],
+//        build(input, values) -> { system, prompt } }
+function renderPromptTool(mount, cfg) {
+  renderLlmGate(mount, (m) => {
+    const controlsHtml = (cfg.controls || [])
+      .map((c) => {
+        if (c.type === "checkboxes") {
+          return `<div class="field"><label>${escapeHtml(c.label)}</label>
+            <div class="metric-row" id="${c.id}">${c.options
+              .map(
+                (o, i) =>
+                  `<label class="metric" style="cursor:pointer"><input type="checkbox" value="${escapeHtml(o)}" ${
+                    i < (c.defaultCount == null ? c.options.length : c.defaultCount) ? "checked" : ""
+                  } style="width:auto;min-height:auto;margin-right:6px"> ${escapeHtml(o)}</label>`
+              )
+              .join("")}</div></div>`;
+        }
+        return `<div class="field"><label for="${c.id}">${escapeHtml(c.label)}</label>
+          <select id="${c.id}">${c.options.map((o) => `<option>${escapeHtml(o)}</option>`).join("")}</select></div>`;
+      })
+      .join("");
+
+    renderShell(
+      m,
+      `<div class="tool-grid">
+        <div class="panel">
+          <h3>${escapeHtml(cfg.inputHeading || "Input")}</h3>
+          <div class="field">
+            <label for="ptInput">${escapeHtml(cfg.inputLabel)}</label>
+            <textarea id="ptInput" placeholder="${escapeHtml(cfg.placeholder || "")}"></textarea>
+            ${
+              cfg.voiceInput
+                ? `<div class="action-row"><button class="secondary" id="ptVoice" type="button">Record voice</button><span id="ptVoiceStatus" class="hint"></span></div>`
+                : ""
+            }
+          </div>
+          ${controlsHtml}
+          <div class="action-row">
+            <button class="primary" id="ptRun">${escapeHtml(cfg.runLabel || "Generate")}</button>
+          </div>
+          <p id="ptStatus" class="status"></p>
+        </div>
+        <div class="panel">
+          <h3>Result</h3>
+          <div id="ptOutput" class="output"></div>
+          <div class="action-row">
+            <button class="secondary" id="ptCopy">Copy</button>
+            <button class="secondary" id="ptDownload">Download .txt</button>
+            ${cfg.readAloud ? `<button class="secondary" id="ptSpeak">Read aloud</button>` : ""}
+          </div>
+        </div>
+      </div>`
+    );
+
+    const input = document.getElementById("ptInput");
+    const status = document.getElementById("ptStatus");
+    const output = document.getElementById("ptOutput");
+
+    if (cfg.voiceInput) {
+      attachDictation(document.getElementById("ptVoice"), input, document.getElementById("ptVoiceStatus"));
+    }
+
+    function readValues() {
+      const values = {};
+      for (const c of cfg.controls || []) {
+        if (c.type === "checkboxes") {
+          values[c.id] = Array.from(document.querySelectorAll(`#${c.id} input:checked`)).map((el) => el.value);
+        } else {
+          const el = document.getElementById(c.id);
+          values[c.id] = el ? el.value : "";
+        }
+      }
+      return values;
+    }
+
+    document.getElementById("ptRun").addEventListener("click", async () => {
+      const text = input.value.trim();
+      if (!text) {
+        status.textContent = "Add some text first.";
+        return;
+      }
+      const { system, prompt } = cfg.build(text, readValues());
+      status.textContent = "Working with your AI model…";
+      output.textContent = "";
+      try {
+        output.textContent = await callLLM({ system, prompt, maxTokens: cfg.maxTokens || 1200 });
+        status.textContent = "Done.";
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    });
+
+    document.getElementById("ptCopy").addEventListener("click", () => copyText(output.textContent, status));
+    document.getElementById("ptDownload").addEventListener("click", () => downloadText(`${cfg.file || "output"}.txt`, output.textContent));
+    if (cfg.readAloud) {
+      document.getElementById("ptSpeak").addEventListener("click", () => speakText(output.textContent));
+    }
+  });
+}
+
+// ---- Writing tools ----
+function renderEmailAssistant(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Email",
+    inputLabel: "What's the email about? (or paste an email to reply to)",
+    placeholder: "e.g. Ask the vendor for a revised quote by Friday…",
+    runLabel: "Write email",
+    maxTokens: 900,
+    file: "email",
+    controls: [
+      { id: "goal", label: "Goal", type: "select", options: ["Write a new email", "Reply to this email"] },
+      { id: "tone", label: "Tone", type: "select", options: ["Professional", "Friendly", "Formal", "Direct", "Warm"] },
+      { id: "length", label: "Length", type: "select", options: ["Short", "Medium", "Detailed"] }
+    ],
+    build(input, v) {
+      return {
+        system:
+          "You are an expert email writer. Write clear, natural, ready-to-send emails. If writing a new email, include a subject line, then the body. Return only the email — no preamble or commentary.",
+        prompt: `${v.goal === "Reply to this email" ? "Write a reply to the email below." : "Write a new email."}
+Tone: ${v.tone}. Length: ${v.length}.
+
+${input}`
+      };
+    }
+  });
+}
+
+function renderRewrite(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Text",
+    inputLabel: "Text to rewrite",
+    placeholder: "Paste the text you want to improve…",
+    runLabel: "Rewrite",
+    maxTokens: 900,
+    file: "rewrite",
+    controls: [
+      {
+        id: "style",
+        label: "Make it",
+        type: "select",
+        options: ["Clearer", "Shorter", "Friendlier", "More professional", "More formal", "Simpler", "Expanded"]
+      }
+    ],
+    build(input, v) {
+      return {
+        system: "You rewrite text while preserving its meaning and intent. Return only the rewritten text.",
+        prompt: `Rewrite the text below to be ${v.style.toLowerCase()}.
+
+${input}`
+      };
+    }
+  });
+}
+
+function renderReplyGenerator(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Message",
+    inputLabel: "Paste the message or thread you're replying to",
+    placeholder: "Paste an email, Slack message, or DM…",
+    runLabel: "Draft replies",
+    maxTokens: 900,
+    file: "replies",
+    controls: [
+      { id: "intent", label: "Your intent", type: "select", options: ["Acknowledge", "Say yes", "Say no politely", "Ask a clarifying question", "Push back"] },
+      { id: "tone", label: "Tone", type: "select", options: ["Friendly", "Professional", "Casual", "Direct"] }
+    ],
+    build(input, v) {
+      return {
+        system:
+          "You draft short, natural replies to messages (email, Slack, DM). Return three distinct options, each labeled 'Option 1', 'Option 2', 'Option 3'. Plain text.",
+        prompt: `Reply to the message below. Intent: ${v.intent}. Tone: ${v.tone}.
+
+${input}`
+      };
+    }
+  });
+}
+
+function renderProofread(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Text",
+    inputLabel: "Text to proofread",
+    placeholder: "Paste text to fix…",
+    runLabel: "Proofread",
+    maxTokens: 1000,
+    file: "proofread",
+    build(input) {
+      return {
+        system: "You are a meticulous proofreader. Fix grammar, spelling, punctuation, and clarity without changing meaning or voice. Plain text.",
+        prompt: `Return two sections:
+CORRECTED: the corrected text.
+CHANGES: a short bullet list of what you changed and why.
+
+Text:
+${input}`
+      };
+    }
+  });
+}
+
+// ---- Summaries ----
+function renderSummarize(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Source",
+    inputLabel: "Paste text, an article, or a transcript — or use voice",
+    placeholder: "Paste anything long here, or click Record voice…",
+    runLabel: "Summarize",
+    maxTokens: 1300,
+    file: "summary",
+    voiceInput: true,
+    readAloud: true,
+    controls: [
+      { id: "length", label: "Summary length", type: "select", options: ["Brief", "Standard", "Detailed"] },
+      {
+        id: "translate",
+        label: "Translate to",
+        type: "select",
+        options: ["No translation", "Spanish", "Hindi", "French", "German", "Portuguese", "Arabic", "Japanese", "Chinese"]
+      }
+    ],
+    build(input, v) {
+      const detail =
+        v.length === "Brief" ? "Keep it tight: 3-4 key points." : v.length === "Detailed" ? "Be thorough: 7-10 key points." : "5-7 key points.";
+      const translate = v.translate && v.translate !== "No translation" ? `\nWrite the entire response in ${v.translate}.` : "";
+      return {
+        system:
+          "You are a precise summarizer. Produce a clear, faithful summary in plain text (no markdown symbols). Do not invent facts.",
+        prompt: `Summarize the source below. ${detail}
+Return exactly these sections, each heading in capitals followed by a colon on its own line:
+TL;DR: one or two sentences.
+KEY POINTS: bullet lines starting with "- ".
+ACTION ITEMS: concrete next steps as "- ", or "None" if there are none.${translate}
+
+Source:
+"""
+${input}
+"""`
+      };
+    }
+  });
+}
+
+function renderMeetingNotes(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Notes",
+    inputLabel: "Paste meeting notes or a transcript",
+    placeholder: "Paste raw notes or a meeting transcript…",
+    runLabel: "Make minutes",
+    maxTokens: 1500,
+    file: "meeting-notes",
+    build(input) {
+      return {
+        system: "You turn raw meeting notes or transcripts into structured minutes. Plain text, no markdown symbols.",
+        prompt: `Produce these sections:
+SUMMARY: a short paragraph.
+DECISIONS: bullet list.
+ACTION ITEMS: lines as "- owner — task (due date if mentioned)".
+FOLLOW-UP EMAIL: a concise recap email ready to send.
+
+Notes:
+${input}`
+      };
+    }
+  });
+}
+
+// ---- Voice ----
+function renderVoiceNotes(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Voice note",
+    inputLabel: "Record a voice note (or type / paste)",
+    placeholder: "Click Record voice and start talking, or paste a rough note…",
+    runLabel: "Clean up & extract tasks",
+    maxTokens: 1000,
+    file: "voice-notes",
+    voiceInput: true,
+    build(input) {
+      return {
+        system: "You turn messy voice notes or rough text into a clean note plus tasks. Plain text.",
+        prompt: `From the note below, produce:
+NOTE: a cleaned, readable version (fix filler words and run-ons).
+SUMMARY: 2-4 bullet points.
+TASKS: action items as a checklist, one per line as "- [ ] task".
+
+Note:
+${input}`
+      };
+    }
+  });
+}
+
+// ---- Social & content ----
+function renderAiPostGenerator(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Idea",
+    inputLabel: "Your idea",
+    placeholder: "What do you want to post about?",
+    runLabel: "Generate posts",
+    maxTokens: 1500,
+    file: "ai-posts",
+    controls: [
+      { id: "platforms", label: "Platforms", type: "checkboxes", options: ["LinkedIn", "X", "Instagram", "Facebook"], defaultCount: 2 },
+      { id: "tone", label: "Tone", type: "select", options: ["Practical", "Bold", "Story", "Professional", "Friendly"] }
+    ],
+    build(input, v) {
+      const platforms = v.platforms && v.platforms.length ? v.platforms : ["LinkedIn", "X"];
+      return {
+        system:
+          "You are a social media copywriter. Write platform-native posts that are specific and engaging, with no generic filler. Plain text — no markdown headers.",
+        prompt: `Idea: ${input}
+
+Tone: ${v.tone}.
+Write one post for each platform: ${platforms.join(", ")}.
+For each, put the platform name in capitals on its own line, then the post, then a blank line. Tailor each: LinkedIn = hook + short paragraphs; X = punchy, under 280 characters; Instagram = caption + a few fitting hashtags; Facebook = conversational. Hashtags only where they fit.`
+      };
+    }
+  });
+}
+
+function renderRepurpose(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Content",
+    inputLabel: "Paste the long content (article, transcript, notes)",
+    placeholder: "Paste a blog post, transcript, or long notes…",
+    runLabel: "Repurpose",
+    maxTokens: 1600,
+    file: "repurposed",
+    controls: [
+      {
+        id: "formats",
+        label: "Turn into",
+        type: "checkboxes",
+        options: ["LinkedIn post", "X thread", "Instagram carousel outline", "Newsletter blurb", "YouTube description", "Shorts/Reels script"],
+        defaultCount: 2
+      }
+    ],
+    build(input, v) {
+      const formats = v.formats && v.formats.length ? v.formats : ["LinkedIn post", "X thread"];
+      return {
+        system: "You repurpose long content into platform-native formats. Plain text; put each format under its own capitalized heading.",
+        prompt: `Repurpose the content below into: ${formats.join(", ")}. Keep the core message; adapt length and style to each format.
+
+${input}`
+      };
+    }
+  });
+}
+
+function renderHeadlines(mount) {
+  renderPromptTool(mount, {
+    inputHeading: "Topic",
+    inputLabel: "What's it about?",
+    placeholder: "e.g. A free tool that turns voice notes into tasks",
+    runLabel: "Generate options",
+    maxTokens: 700,
+    file: "headlines",
+    controls: [
+      { id: "type", label: "Type", type: "select", options: ["Blog titles", "Email subject lines", "YouTube titles", "Hooks / opening lines", "Product taglines"] },
+      { id: "count", label: "How many", type: "select", options: ["5", "8", "10"] }
+    ],
+    build(input, v) {
+      return {
+        system: "You are a punchy copywriter. Return a numbered list only — no preamble.",
+        prompt: `Write ${v.count} ${v.type.toLowerCase()} for: ${input}
+Make them varied: some curiosity-driven, some direct and specific, some benefit-led.`
+      };
+    }
+  });
+}
+
+// ---- Browser voice tools (no LLM) ----
 function renderSpeechToText(mount) {
   renderShell(
     mount,
@@ -269,15 +581,12 @@ function renderSpeechToText(mount) {
     recognition.onstart = () => {
       status.textContent = "Listening...";
     };
-
     recognition.onerror = (event) => {
       status.textContent = `Recognition error: ${event.error}`;
     };
-
     recognition.onend = () => {
       status.textContent = "Recording stopped.";
     };
-
     recognition.onresult = (event) => {
       let interimText = "";
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
@@ -369,7 +678,6 @@ function renderTextToSpeech(mount) {
       status.textContent = "Enter some text first.";
       return;
     }
-
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = speechSynthesis.getVoices();
@@ -393,649 +701,4 @@ function renderTextToSpeech(mount) {
     status.textContent = "Stopped.";
   });
   document.getElementById("ttsDownload").addEventListener("click", () => downloadText("text-to-speech-script.txt", document.getElementById("ttsText").value));
-}
-
-function renderYoutubeTranscript(mount) {
-  renderShell(
-    mount,
-    `<div class="tool-grid">
-      <div class="panel">
-        <h3>YouTube URL</h3>
-        <div class="field">
-          <label for="ytUrl">Video URL or ID</label>
-          <input id="ytUrl" placeholder="https://www.youtube.com/watch?v=...">
-        </div>
-        <div class="field">
-          <label for="ytFormat">Output format</label>
-          <select id="ytFormat">
-            <option value="timestampedText">Timestamped transcript</option>
-            <option value="plainText">Plain text</option>
-          </select>
-        </div>
-        <div class="action-row">
-          <button class="primary" id="ytFetch">Get transcript</button>
-          <button class="secondary" id="ytCopy">Copy</button>
-          <button class="secondary" id="ytDownload">Download .txt</button>
-        </div>
-        <p id="ytStatus" class="status"></p>
-      </div>
-      <div class="panel">
-        <h3 id="ytTitle">Transcript</h3>
-        <div id="ytMeta" class="metric-row"></div>
-        <div id="ytOutput" class="output"></div>
-      </div>
-    </div>`
-  );
-
-  const output = document.getElementById("ytOutput");
-  const status = document.getElementById("ytStatus");
-  let latestTranscript = null;
-
-  function currentText() {
-    if (!latestTranscript) return output.textContent || "";
-    return latestTranscript[document.getElementById("ytFormat").value] || "";
-  }
-
-  document.getElementById("ytFormat").addEventListener("change", () => {
-    if (latestTranscript) output.textContent = currentText();
-  });
-
-  document.getElementById("ytFetch").addEventListener("click", async () => {
-    const url = document.getElementById("ytUrl").value.trim();
-    if (!url) {
-      status.textContent = "Paste a YouTube URL first.";
-      return;
-    }
-
-    status.textContent = "Fetching public captions...";
-    output.textContent = "";
-
-    try {
-      const response = await fetch(`/api/youtube-transcript?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Transcript request failed.");
-
-      latestTranscript = data;
-      document.getElementById("ytTitle").textContent = data.title || "Transcript";
-      document.getElementById("ytMeta").innerHTML = [
-        `${data.lines.length} lines`,
-        data.language ? `Language: ${data.language}` : "",
-        data.author ? `By ${data.author}` : ""
-      ]
-        .filter(Boolean)
-        .map((item) => `<span class="metric">${escapeHtml(item)}</span>`)
-        .join("");
-      output.textContent = currentText();
-      status.textContent = "Transcript loaded.";
-    } catch (error) {
-      status.textContent = error.message;
-    }
-  });
-
-  document.getElementById("ytCopy").addEventListener("click", () => copyText(currentText(), status));
-  document.getElementById("ytDownload").addEventListener("click", () => downloadText("youtube-transcript.txt", currentText()));
-}
-
-function createPosts(idea, options = {}) {
-  const cleanIdea = String(idea || "").trim();
-  const hook = firstMeaningfulSentence(cleanIdea).replace(/[.!?]+$/, "");
-  const keywords = keywordList(cleanIdea, 6);
-  const hashtags = keywords.slice(0, 5).map((keyword) => `#${keyword.replace(/-/g, "")}`);
-  const tone = options.tone || "practical";
-  const audience = options.audience || "creators and professionals";
-
-  const opening =
-    tone === "bold"
-      ? `Most people are thinking about ${hook} the wrong way.`
-      : tone === "story"
-        ? `I used to overcomplicate ${hook.toLowerCase()}.`
-        : `${hook} matters more than it looks.`;
-
-  return {
-    LinkedIn: `${opening}\n\nHere is the simple version:\n\n1. Start with the real user problem.\n2. Remove anything that adds friction.\n3. Package the result as a repeatable workflow.\n\nFor ${audience}, the win is not novelty. The win is getting from idea to useful output faster.\n\nQuestion: what would you simplify first?`,
-    X: `${opening}\n\nA simple way to approach it:\n\n1/ Name the problem clearly\n2/ Build the smallest useful workflow\n3/ Add polish only after people use it\n4/ Keep the output easy to copy, export, or share\n\nUseful beats flashy.`,
-    Instagram: `${hook}\n\nSave this simple framework:\n\n- Problem\n- Input\n- Transformation\n- Output\n- Next action\n\nMake the workflow obvious and people will actually use it.\n\n${hashtags.join(" ")}`,
-    Facebook: `${hook}\n\nI think the most useful tools are not always the most complicated ones. They take something messy, like a voice note, transcript, or rough idea, and turn it into something ready to use.\n\nThat is the kind of workflow worth building: simple input, clear output, less busywork.`
-  };
-}
-
-function renderPostResults(container, posts) {
-  container.innerHTML = Object.entries(posts)
-    .map(
-      ([platform, post]) =>
-        `<article class="result-card">
-          <h4>${escapeHtml(platform)}</h4>
-          <pre>${escapeHtml(post)}</pre>
-        </article>`
-    )
-    .join("");
-}
-
-function renderViralPostGenerator(mount) {
-  renderShell(
-    mount,
-    `<div class="tool-grid">
-      <div class="panel">
-        <h3>Idea</h3>
-        <textarea id="viralIdea" placeholder="Describe your idea, lesson, offer, or insight..."></textarea>
-        <div class="field-grid">
-          <div class="field">
-            <label for="viralTone">Tone</label>
-            <select id="viralTone">
-              <option value="practical">Practical</option>
-              <option value="bold">Bold</option>
-              <option value="story">Story-driven</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="viralAudience">Audience</label>
-            <input id="viralAudience" value="creators and professionals">
-          </div>
-        </div>
-        <div class="action-row">
-          <button class="primary" id="viralGenerate">Generate posts</button>
-          <button class="secondary" id="viralCopy">Copy all</button>
-        </div>
-        <p id="viralStatus" class="status"></p>
-      </div>
-      <div class="panel">
-        <h3>Platform drafts</h3>
-        <div id="viralResults" class="result-list"></div>
-      </div>
-    </div>`
-  );
-
-  const results = document.getElementById("viralResults");
-  const status = document.getElementById("viralStatus");
-  let latest = {};
-
-  document.getElementById("viralGenerate").addEventListener("click", () => {
-    const idea = document.getElementById("viralIdea").value;
-    if (!idea.trim()) {
-      status.textContent = "Enter an idea first.";
-      return;
-    }
-
-    latest = createPosts(idea, {
-      tone: document.getElementById("viralTone").value,
-      audience: document.getElementById("viralAudience").value
-    });
-    renderPostResults(results, latest);
-    status.textContent = "Posts generated with deterministic templates.";
-  });
-
-  document.getElementById("viralCopy").addEventListener("click", () => {
-    const text = Object.entries(latest)
-      .map(([platform, post]) => `${platform}\n${post}`)
-      .join("\n\n---\n\n");
-    copyText(text, status);
-  });
-}
-
-function renderVoiceToLinkedin(mount) {
-  renderSpeechToText(mount);
-  const panel = document.createElement("div");
-  panel.className = "panel";
-  panel.style.marginTop = "18px";
-  panel.innerHTML = `<h3>LinkedIn post from transcript</h3>
-    <div class="action-row">
-      <button class="primary" id="voiceLinkedinGenerate">Create LinkedIn post</button>
-      <button class="secondary" id="voiceLinkedinCopy">Copy post</button>
-    </div>
-    <div id="voiceLinkedinOutput" class="output"></div>`;
-  mount.append(panel);
-
-  const output = document.getElementById("voiceLinkedinOutput");
-  const status = document.getElementById("sttStatus");
-  let latest = "";
-
-  document.getElementById("voiceLinkedinGenerate").addEventListener("click", () => {
-    const transcript = document.getElementById("sttOutput").value;
-    if (!transcript.trim()) {
-      status.textContent = "Record or paste a transcript first.";
-      return;
-    }
-    latest = createPosts(transcript, { tone: "story", audience: "LinkedIn readers" }).LinkedIn;
-    output.textContent = latest;
-    status.textContent = "LinkedIn draft created.";
-  });
-
-  document.getElementById("voiceLinkedinCopy").addEventListener("click", () => copyText(latest, status));
-}
-
-function repurposeContent(text) {
-  const summary = firstMeaningfulSentence(text).replace(/[.!?]+$/, "");
-  const keys = keywordList(text, 8);
-  const usefulSentences = sentences(text).slice(0, 5);
-  const bullets = usefulSentences.map((sentence) => `- ${sentence.replace(/[.!?]+$/, "")}`).join("\n");
-
-  return {
-    "LinkedIn Post": `${summary}\n\nWhat stands out:\n\n${bullets}\n\nThe takeaway: make the next step easier than the current habit.`,
-    "X Thread": `1/ ${summary}\n\n2/ ${usefulSentences[1] || "The best workflows reduce repeated effort."}\n\n3/ ${usefulSentences[2] || "Simple inputs and clear outputs matter."}\n\n4/ Build for repeat use, not one-time novelty.`,
-    "Instagram Caption": `${summary}\n\nQuick notes:\n${bullets}\n\n${keys.slice(0, 5).map((key) => `#${slugify(key)}`).join(" ")}`,
-    "Newsletter Blurb": `This week, the useful idea is simple: ${summary.toLowerCase()}.\n\nThe practical lesson is to reduce friction, make the workflow repeatable, and turn raw material into something people can use immediately.`
-  };
-}
-
-function renderContentRepurposer(mount) {
-  renderShell(
-    mount,
-    `<div class="tool-grid">
-      <div class="panel">
-        <h3>Source content</h3>
-        <textarea id="repurposeInput" placeholder="Paste a transcript, article, notes, or rough draft..."></textarea>
-        <div class="action-row">
-          <button class="primary" id="repurposeGenerate">Repurpose</button>
-          <button class="secondary" id="repurposeCopy">Copy all</button>
-        </div>
-        <p id="repurposeStatus" class="status"></p>
-      </div>
-      <div class="panel">
-        <h3>Outputs</h3>
-        <div id="repurposeResults" class="result-list"></div>
-      </div>
-    </div>`
-  );
-
-  const results = document.getElementById("repurposeResults");
-  const status = document.getElementById("repurposeStatus");
-  let latest = {};
-
-  document.getElementById("repurposeGenerate").addEventListener("click", () => {
-    const text = document.getElementById("repurposeInput").value;
-    if (!text.trim()) {
-      status.textContent = "Paste source content first.";
-      return;
-    }
-    latest = repurposeContent(text);
-    renderPostResults(results, latest);
-    status.textContent = "Content repurposed with templates and keyword extraction.";
-  });
-
-  document.getElementById("repurposeCopy").addEventListener("click", () => {
-    const text = Object.entries(latest)
-      .map(([format, value]) => `${format}\n${value}`)
-      .join("\n\n---\n\n");
-    copyText(text, status);
-  });
-}
-
-function parseTimestampToSeconds(timestamp) {
-  const parts = timestamp.split(":").map(Number);
-  if (parts.some(Number.isNaN)) return 0;
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  return parts[0] || 0;
-}
-
-function formatSeconds(seconds) {
-  const safe = Math.max(0, Math.floor(seconds));
-  const mins = Math.floor(safe / 60);
-  const secs = String(safe % 60).padStart(2, "0");
-  return `${mins}:${secs}`;
-}
-
-function parseTranscriptLines(text) {
-  const lines = String(text || "")
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  return lines.map((line, index) => {
-    const match = line.match(/^\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?\s*(.*)$/);
-    if (match) {
-      return {
-        time: parseTimestampToSeconds(match[1]),
-        text: match[2],
-        raw: line
-      };
-    }
-    return {
-      time: index * 15,
-      text: line,
-      raw: line
-    };
-  });
-}
-
-function scoreClip(text) {
-  const lower = text.toLowerCase();
-  let score = 0;
-  if (/\?/.test(text)) score += 2;
-  if (/\b(secret|mistake|simple|truth|lesson|framework|strategy|money|growth|failed|learned|stop|start)\b/.test(lower)) score += 3;
-  if (/\b\d+/.test(text)) score += 2;
-  if (text.length >= 180 && text.length <= 700) score += 2;
-  if (/\bbut\b|\bhowever\b|\bthe problem\b|\bthe thing is\b/.test(lower)) score += 1;
-  return score;
-}
-
-function findClips(text) {
-  const lines = parseTranscriptLines(text);
-  const windows = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const chunk = lines.slice(index, index + 4);
-    const combined = chunk.map((line) => line.text).join(" ").trim();
-    if (!combined) continue;
-    const start = chunk[0].time;
-    const end = chunk[chunk.length - 1].time + 18;
-    windows.push({
-      start,
-      end,
-      text: combined,
-      score: scoreClip(combined)
-    });
-  }
-
-  return windows
-    .sort((a, b) => b.score - a.score || a.start - b.start)
-    .slice(0, 6)
-    .map((clip, index) => ({
-      ...clip,
-      title: `Clip ${index + 1}: ${firstMeaningfulSentence(clip.text).slice(0, 70)}`
-    }));
-}
-
-function renderClipFinder(mount) {
-  renderShell(
-    mount,
-    `<div class="tool-grid">
-      <div class="panel">
-        <h3>Transcript</h3>
-        <textarea id="clipInput" placeholder="[0:12] Paste timestamped transcript lines here..."></textarea>
-        <div class="action-row">
-          <button class="primary" id="clipFind">Find clips</button>
-          <button class="secondary" id="clipCopy">Copy clips</button>
-        </div>
-        <p id="clipStatus" class="status"></p>
-      </div>
-      <div class="panel">
-        <h3>Clip candidates</h3>
-        <div id="clipResults" class="result-list"></div>
-      </div>
-    </div>`
-  );
-
-  const results = document.getElementById("clipResults");
-  const status = document.getElementById("clipStatus");
-  let latest = [];
-
-  document.getElementById("clipFind").addEventListener("click", () => {
-    const text = document.getElementById("clipInput").value;
-    if (!text.trim()) {
-      status.textContent = "Paste a transcript first.";
-      return;
-    }
-
-    latest = findClips(text);
-    results.innerHTML = latest
-      .map(
-        (clip) =>
-          `<article class="result-card">
-            <h4>${escapeHtml(clip.title)}</h4>
-            <div class="metric-row">
-              <span class="metric">${formatSeconds(clip.start)}-${formatSeconds(clip.end)}</span>
-              <span class="metric">Score ${clip.score}</span>
-            </div>
-            <pre>${escapeHtml(clip.text)}</pre>
-          </article>`
-      )
-      .join("");
-    status.textContent = "Clip candidates scored with deterministic rules.";
-  });
-
-  document.getElementById("clipCopy").addEventListener("click", () => {
-    const text = latest
-      .map((clip) => `${clip.title}\n${formatSeconds(clip.start)}-${formatSeconds(clip.end)}\n${clip.text}`)
-      .join("\n\n---\n\n");
-    copyText(text, status);
-  });
-}
-
-// ---- LLM (bring-your-own-key) tools ----
-
-// Gate: if the visitor hasn't set an API key, show a prompt to add one;
-// otherwise render the actual tool body. (callLLM / hasLlmKey come from llm.js.)
-function renderLlmGate(mount, renderBody) {
-  if (canUseLlm()) {
-    renderBody(mount);
-    return;
-  }
-  renderShell(
-    mount,
-    `<div class="llm-gate">
-      <h3>Use your own key, or buy credits</h3>
-      <p>This is an AI tool. Either bring your own Claude, OpenAI, or Gemini key (free, stored only in your browser), or buy credits and use it with no key. Pick an option in the panel.</p>
-      <button class="primary" id="gateOpen">Set up access</button>
-    </div>`
-  );
-  document.getElementById("gateOpen").addEventListener("click", () => window.openLlmSettings());
-}
-
-const SUMMARY_SYSTEM =
-  "You are a precise summarizer. Given a transcript or long text, produce a clear, faithful, well-structured summary in plain text (no markdown symbols like # or *). Do not invent facts that are not in the source.";
-
-function summaryPrompt(text) {
-  return `Summarize the transcript below. Return exactly these three sections, each starting with the heading in capitals followed by a colon on its own line:
-
-TL;DR: one or two sentences.
-KEY POINTS: 5-8 lines, each starting with "- ".
-CHAPTERS: 4-8 lines. If the text has timestamps use "mm:ss - short title"; otherwise list logical sections as "- title".
-
-Transcript:
-"""
-${text}
-"""`;
-}
-
-async function runSummary(text, output, status) {
-  status.textContent = "Summarizing with your AI model…";
-  output.textContent = "";
-  try {
-    output.textContent = await callLLM({
-      system: SUMMARY_SYSTEM,
-      prompt: summaryPrompt(text),
-      maxTokens: 1200
-    });
-    status.textContent = "Done.";
-  } catch (error) {
-    status.textContent = error.message;
-  }
-}
-
-function renderTranscriptSummarizer(mount) {
-  renderLlmGate(mount, (m) => {
-    renderShell(
-      m,
-      `<div class="tool-grid">
-        <div class="panel">
-          <h3>Transcript or long text</h3>
-          <div class="field">
-            <textarea id="tsInput" placeholder="Paste a transcript, article, or notes…"></textarea>
-          </div>
-          <div class="action-row">
-            <button class="primary" id="tsRun">Summarize</button>
-            <button class="secondary" id="tsCopy">Copy</button>
-            <button class="secondary" id="tsDownload">Download .txt</button>
-          </div>
-          <p id="tsStatus" class="status"></p>
-        </div>
-        <div class="panel">
-          <h3>Summary</h3>
-          <div id="tsOutput" class="output"></div>
-        </div>
-      </div>`
-    );
-    const status = document.getElementById("tsStatus");
-    const output = document.getElementById("tsOutput");
-    document.getElementById("tsRun").addEventListener("click", () => {
-      const text = document.getElementById("tsInput").value.trim();
-      if (!text) {
-        status.textContent = "Paste some text first.";
-        return;
-      }
-      runSummary(text, output, status);
-    });
-    document.getElementById("tsCopy").addEventListener("click", () => copyText(output.textContent, status));
-    document.getElementById("tsDownload").addEventListener("click", () => downloadText("summary.txt", output.textContent));
-  });
-}
-
-function renderYoutubeSummarizer(mount) {
-  renderLlmGate(mount, (m) => {
-    renderShell(
-      m,
-      `<div class="tool-grid">
-        <div class="panel">
-          <h3>YouTube URL</h3>
-          <div class="field">
-            <label for="ysUrl">Video URL or ID</label>
-            <input id="ysUrl" placeholder="https://www.youtube.com/watch?v=…">
-          </div>
-          <div class="action-row">
-            <button class="primary" id="ysRun">Summarize video</button>
-            <button class="secondary" id="ysCopy">Copy</button>
-            <button class="secondary" id="ysDownload">Download .txt</button>
-          </div>
-          <p id="ysStatus" class="status"></p>
-          <div id="ysFallback"></div>
-        </div>
-        <div class="panel">
-          <h3 id="ysTitle">Summary</h3>
-          <div id="ysOutput" class="output"></div>
-        </div>
-      </div>`
-    );
-    const status = document.getElementById("ysStatus");
-    const output = document.getElementById("ysOutput");
-    const fallback = document.getElementById("ysFallback");
-
-    document.getElementById("ysRun").addEventListener("click", async () => {
-      const url = document.getElementById("ysUrl").value.trim();
-      fallback.innerHTML = "";
-      if (!url) {
-        status.textContent = "Paste a YouTube URL first.";
-        return;
-      }
-      status.textContent = "Fetching the transcript…";
-      output.textContent = "";
-
-      let data;
-      try {
-        const response = await fetch(`/api/youtube-transcript?url=${encodeURIComponent(url)}`);
-        data = await response.json();
-        if (!response.ok) {
-          if (response.status === 402) {
-            status.textContent = "";
-            fallback.innerHTML = `<div class="tool-callout">
-              <strong>Auto-transcript is out of free credits</strong>
-              <p>The free monthly transcript quota ran out. Grab the transcript from a free site and paste it into the Transcript Summarizer instead.</p>
-              <button class="secondary" id="ysToPaste">Open Transcript Summarizer →</button>
-            </div>`;
-            document
-              .getElementById("ysToPaste")
-              .addEventListener("click", () => window.activateToolById("transcript-summarizer"));
-            return;
-          }
-          throw new Error(data.error || "Could not fetch the transcript.");
-        }
-      } catch (error) {
-        status.textContent = error.message || "Could not fetch the transcript.";
-        return;
-      }
-
-      document.getElementById("ysTitle").textContent = data.title || "Summary";
-      runSummary(data.plainText || "", output, status);
-    });
-
-    document.getElementById("ysCopy").addEventListener("click", () => copyText(output.textContent, status));
-    document.getElementById("ysDownload").addEventListener("click", () => downloadText("youtube-summary.txt", output.textContent));
-  });
-}
-
-function renderAiPostGenerator(mount) {
-  renderLlmGate(mount, (m) => {
-    const platforms = ["LinkedIn", "X", "Instagram", "Facebook"];
-    renderShell(
-      m,
-      `<div class="tool-grid">
-        <div class="panel">
-          <h3>Your idea</h3>
-          <div class="field">
-            <textarea id="apIdea" placeholder="What do you want to post about?"></textarea>
-          </div>
-          <div class="field">
-            <label>Platforms</label>
-            <div class="metric-row" id="apPlatforms">
-              ${platforms
-                .map(
-                  (p, i) =>
-                    `<label class="metric" style="cursor:pointer"><input type="checkbox" value="${p}" ${
-                      i < 2 ? "checked" : ""
-                    } style="width:auto;min-height:auto;margin-right:6px"> ${p}</label>`
-                )
-                .join("")}
-            </div>
-          </div>
-          <div class="field">
-            <label for="apTone">Tone</label>
-            <select id="apTone">
-              <option>practical</option>
-              <option>bold</option>
-              <option>story</option>
-              <option>professional</option>
-              <option>friendly</option>
-            </select>
-          </div>
-          <div class="action-row">
-            <button class="primary" id="apRun">Generate posts</button>
-            <button class="secondary" id="apCopy">Copy</button>
-            <button class="secondary" id="apDownload">Download .txt</button>
-          </div>
-          <p id="apStatus" class="status"></p>
-        </div>
-        <div class="panel">
-          <h3>Posts</h3>
-          <div id="apOutput" class="output"></div>
-        </div>
-      </div>`
-    );
-    const status = document.getElementById("apStatus");
-    const output = document.getElementById("apOutput");
-
-    document.getElementById("apRun").addEventListener("click", async () => {
-      const idea = document.getElementById("apIdea").value.trim();
-      const chosen = Array.from(document.querySelectorAll("#apPlatforms input:checked")).map((c) => c.value);
-      const tone = document.getElementById("apTone").value;
-      if (!idea) {
-        status.textContent = "Describe your idea first.";
-        return;
-      }
-      if (!chosen.length) {
-        status.textContent = "Pick at least one platform.";
-        return;
-      }
-      status.textContent = "Writing posts with your AI model…";
-      output.textContent = "";
-
-      const system =
-        "You are a social media copywriter. Write platform-native posts that are specific and engaging, with no generic filler. Plain text only — no markdown headers.";
-      const prompt = `Idea: ${idea}
-
-Tone: ${tone}
-Write one post for each of these platforms: ${chosen.join(", ")}.
-
-For each platform, put the platform name in capitals on its own line, then the post, then a blank line. Tailor each: LinkedIn = strong hook + short paragraphs; X = punchy, under 280 characters; Instagram = caption plus a few fitting hashtags; Facebook = conversational. Use hashtags only where they fit.`;
-
-      try {
-        output.textContent = await callLLM({ system, prompt, maxTokens: 1500 });
-        status.textContent = "Done.";
-      } catch (error) {
-        status.textContent = error.message;
-      }
-    });
-
-    document.getElementById("apCopy").addEventListener("click", () => copyText(output.textContent, status));
-    document.getElementById("apDownload").addEventListener("click", () => downloadText("ai-posts.txt", output.textContent));
-  });
 }

@@ -1,7 +1,6 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const { fetchYoutubeTranscript } = require("./youtube");
 const credits = require("./credits");
 
 // Read a request body as a raw string (used for JSON parsing and Stripe HMAC).
@@ -106,33 +105,6 @@ const server = http.createServer(async (req, res) => {
 
   if (requestUrl.pathname === "/api/health") {
     sendJson(res, 200, { ok: true });
-    return;
-  }
-
-  if (requestUrl.pathname === "/api/youtube-transcript") {
-    const now = Date.now();
-    if (isRateLimited(clientIp(req), now)) {
-      sendJson(res, 429, {
-        error: "You're requesting transcripts too quickly. Please wait a minute and try again."
-      });
-      return;
-    }
-
-    // Opportunistically forget IPs whose window has fully elapsed.
-    if (transcriptHits.size > 5000) {
-      for (const [ip, hits] of transcriptHits) {
-        if (hits.every((ts) => now - ts >= TRANSCRIPT_RATE_WINDOW_MS)) transcriptHits.delete(ip);
-      }
-    }
-
-    try {
-      const transcript = await fetchYoutubeTranscript(requestUrl.searchParams.get("url"));
-      sendJson(res, 200, transcript);
-    } catch (error) {
-      sendJson(res, error.statusCode || 500, {
-        error: error.message || "Something went wrong while loading the transcript."
-      });
-    }
     return;
   }
 

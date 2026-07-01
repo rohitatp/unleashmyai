@@ -71,8 +71,8 @@ const TOOL_DEFINITIONS = [
   { id: "pomodoro", title: "Pomodoro Timer", category: "Calculators",
     summary: "A focus/break timer for deep work.", llm: false, render: renderPomodoro },
 
-  { id: "image-compress", title: "Image Compress & Convert", category: "Image Tools",
-    summary: "Resize, compress, and convert images — privately in your browser.", llm: false, render: renderImageCompress },
+  { id: "image-compress", title: "Image Crop & Resize", category: "Image Tools",
+    summary: "Crop, resize, compress, and convert images — privately in your browser.", llm: false, render: renderImageCompress },
   { id: "image-base64", title: "Image to Base64", category: "Image Tools",
     summary: "Turn an image into a Base64 data URL.", llm: false, render: renderImageBase64 }
 ];
@@ -1014,36 +1014,72 @@ function renderRegexTester(mount) {
 }
 
 function renderTimestampConverter(mount) {
+  const ZONES = ["Local", "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Europe/Berlin", "Asia/Kolkata", "Asia/Dubai", "Asia/Singapore", "Asia/Tokyo", "Australia/Sydney"];
   renderShell(mount, `<div class="tool-grid">
     <div class="panel"><h3>Convert</h3>
-      <div class="field"><label for="tsEpoch">Unix timestamp (seconds or ms)</label><input id="tsEpoch" placeholder="1700000000"></div>
-      <div class="action-row"><button class="primary" id="tsToDate">→ Date</button><button class="secondary" id="tsNow">Now</button></div>
-      <div class="field" style="margin-top:12px"><label for="tsDate">Date/time (ISO or readable)</label><input id="tsDate" placeholder="2026-01-01 12:00"></div>
-      <div class="action-row"><button class="primary" id="tsToEpoch">→ Timestamp</button></div>
+      <div class="field"><label for="tsZone">Timezone</label><select id="tsZone">${ZONES.map((z) => `<option>${z}</option>`).join("")}</select></div>
+
+      <div class="field" style="margin-top:14px"><label for="tsEpoch">Unix timestamp (seconds or ms)</label><input id="tsEpoch" placeholder="1700000000"></div>
+      <div class="action-row"><button class="primary" id="tsToDate">Timestamp → Date</button><button class="secondary" id="tsNow">Now</button></div>
+
+      <div class="field" style="margin-top:16px"><label for="tsDate">Date &amp; time</label><input id="tsDate" type="datetime-local" step="1"></div>
+      <div class="action-row"><button class="primary" id="tsToEpoch">Date → Timestamp</button></div>
       <p id="tsStatus" class="status"></p>
     </div>
     <div class="panel"><h3>Result</h3><div id="tsOut" class="output"></div></div>
   </div>`);
   const out = document.getElementById("tsOut");
   const status = document.getElementById("tsStatus");
+  const zoneEl = document.getElementById("tsZone");
+  const tz = () => (zoneEl.value === "Local" ? undefined : zoneEl.value);
+
+  // Offset (ms) of a timezone from UTC at a given instant.
+  function offsetMs(zone, date) {
+    if (!zone) return -date.getTimezoneOffset() * 60000;
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone, hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"
+    }).formatToParts(date).reduce((a, x) => ((a[x.type] = x.value), a), {});
+    const hour = parts.hour === "24" ? 0 : Number(parts.hour);
+    const asUTC = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), hour, Number(parts.minute), Number(parts.second));
+    return asUTC - date.getTime();
+  }
+
+  function fmt(ms) {
+    const d = new Date(ms);
+    const readable = d.toLocaleString(undefined, {
+      timeZone: tz(), weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short"
+    });
+    return `In ${zoneEl.value}:  ${readable}\nUTC (ISO):  ${d.toISOString()}\nSeconds:  ${Math.floor(ms / 1000)}\nMillis:  ${ms}`;
+  }
+
   document.getElementById("tsToDate").addEventListener("click", () => {
     let n = Number(document.getElementById("tsEpoch").value.trim());
     if (!n) { status.textContent = "Enter a timestamp."; return; }
-    if (n < 1e12) n *= 1000;
-    const d = new Date(n);
-    out.textContent = `Local: ${d.toString()}\nUTC:   ${d.toUTCString()}\nISO:   ${d.toISOString()}`;
+    if (Math.abs(n) < 1e12) n *= 1000; // seconds → ms
+    out.textContent = fmt(n);
     status.textContent = "";
   });
+
   document.getElementById("tsNow").addEventListener("click", () => {
     const now = Date.now();
     document.getElementById("tsEpoch").value = Math.floor(now / 1000);
-    out.textContent = `Seconds: ${Math.floor(now / 1000)}\nMillis:  ${now}\nISO:     ${new Date(now).toISOString()}`;
-  });
-  document.getElementById("tsToEpoch").addEventListener("click", () => {
-    const d = new Date(document.getElementById("tsDate").value);
-    if (isNaN(d.getTime())) { status.textContent = "Could not parse that date."; return; }
-    out.textContent = `Seconds: ${Math.floor(d.getTime() / 1000)}\nMillis:  ${d.getTime()}`;
+    out.textContent = fmt(now);
     status.textContent = "";
+  });
+
+  document.getElementById("tsToEpoch").addEventListener("click", () => {
+    const v = document.getElementById("tsDate").value;
+    const m = v && v.match(/(\d+)-(\d+)-(\d+)T(\d+):(\d+)(?::(\d+))?/);
+    if (!m) { status.textContent = "Pick a date and time."; return; }
+    const naiveUTC = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+    const ms = naiveUTC - offsetMs(tz(), new Date(naiveUTC));
+    out.textContent = fmt(ms);
+    status.textContent = "";
+  });
+
+  zoneEl.addEventListener("change", () => {
+    const n = Number(document.getElementById("tsEpoch").value.trim());
+    if (n) out.textContent = fmt(Math.abs(n) < 1e12 ? n * 1000 : n);
   });
 }
 
@@ -1279,90 +1315,292 @@ function renderPomodoro(mount) {
       <div class="action-row"><button class="primary" id="pmStart">Start</button><button class="secondary" id="pmPause">Pause</button><button class="danger" id="pmReset">Reset</button></div>
       <p id="pmStatus" class="status"></p>
     </div>
-    <div class="panel"><h3 id="pmPhase">Focus</h3><div class="output" id="pmClock" style="font-size:3rem;text-align:center;letter-spacing:2px">25:00</div></div>
+    <div class="panel"><h3 id="pmPhase">Focus</h3><div class="output" id="pmClock" style="font-size:2.6rem;text-align:center;letter-spacing:1px">25:00.000</div></div>
   </div>`);
   const clock = document.getElementById("pmClock");
   const phaseEl = document.getElementById("pmPhase");
   const status = document.getElementById("pmStatus");
-  let phase = "Focus", remaining = 25 * 60, timer = null;
-  function show() {
-    const m = String(Math.floor(remaining / 60)).padStart(2, "0");
-    const s = String(remaining % 60).padStart(2, "0");
-    clock.textContent = `${m}:${s}`;
+  let phase = "Focus";
+  let remainingMs = 25 * 60000;
+  let endAt = null; // wall-clock target while running (keeps it drift-free)
+  let timer = null;
+
+  function phaseDurationMs(p) {
+    return Math.max(0, Number(document.getElementById(p === "Focus" ? "pmWork" : "pmBreak").value)) * 60000;
+  }
+  function show(ms) {
+    const c = Math.max(0, ms);
+    const m = String(Math.floor(c / 60000)).padStart(2, "0");
+    const s = String(Math.floor((c % 60000) / 1000)).padStart(2, "0");
+    const mmm = String(Math.floor(c % 1000)).padStart(3, "0");
+    clock.textContent = `${m}:${s}.${mmm}`;
     phaseEl.textContent = phase;
   }
-  function tick() {
+  function frame() {
     if (!document.body.contains(clock)) { clearInterval(timer); return; } // stop after leaving the tool
-    remaining -= 1;
-    if (remaining < 0) {
+    const ms = endAt - Date.now();
+    if (ms <= 0) {
       phase = phase === "Focus" ? "Break" : "Focus";
-      remaining = Number(document.getElementById(phase === "Focus" ? "pmWork" : "pmBreak").value) * 60;
+      remainingMs = phaseDurationMs(phase);
+      endAt = Date.now() + remainingMs;
       status.textContent = `${phase} time!`;
+      show(remainingMs);
+      return;
     }
-    show();
+    show(ms);
   }
   document.getElementById("pmStart").addEventListener("click", () => {
     clearInterval(timer);
-    timer = setInterval(tick, 1000);
+    endAt = Date.now() + remainingMs;
+    timer = setInterval(frame, 31);
     status.textContent = "Running…";
   });
-  document.getElementById("pmPause").addEventListener("click", () => { clearInterval(timer); status.textContent = "Paused."; });
-  document.getElementById("pmReset").addEventListener("click", () => {
-    clearInterval(timer); phase = "Focus"; remaining = Number(document.getElementById("pmWork").value) * 60; status.textContent = ""; show();
+  document.getElementById("pmPause").addEventListener("click", () => {
+    if (endAt) remainingMs = Math.max(0, endAt - Date.now());
+    clearInterval(timer);
+    endAt = null;
+    status.textContent = "Paused.";
+    show(remainingMs);
   });
-  show();
+  document.getElementById("pmReset").addEventListener("click", () => {
+    clearInterval(timer);
+    endAt = null;
+    phase = "Focus";
+    remainingMs = phaseDurationMs("Focus");
+    status.textContent = "";
+    show(remainingMs);
+  });
+  show(remainingMs);
 }
 
 // ---- Image tools (in-browser via canvas) ----
 function renderImageCompress(mount) {
-  renderShell(mount, `<div class="tool-grid">
-    <div class="panel"><h3>Image</h3>
-      <div class="field"><label for="icFile">Choose an image</label><input id="icFile" type="file" accept="image/*"></div>
-      <div class="field-grid">
-        <div class="field"><label for="icWidth">Max width (px, 0 = keep)</label><input id="icWidth" type="number" value="1280"></div>
-        <div class="field"><label for="icFormat">Format</label><select id="icFormat"><option value="image/jpeg">JPEG</option><option value="image/webp">WebP</option><option value="image/png">PNG</option></select></div>
+  renderShell(
+    mount,
+    `<div class="tool-grid">
+      <div class="panel">
+        <div class="img-editor-head">
+          <h3 style="margin:0">Crop &amp; resize</h3>
+          <label class="button secondary" style="cursor:pointer">Choose image<input id="ieFile" type="file" accept="image/*" style="display:none"></label>
+        </div>
+        <div id="ieStage" class="img-stage">
+          <div id="ieEmpty" class="img-empty">Choose an image to start.</div>
+          <img id="ieImg" alt="" style="display:none">
+          <div id="ieCrop" class="img-crop" hidden>
+            <span class="ih" data-dir="nw"></span><span class="ih" data-dir="n"></span><span class="ih" data-dir="ne"></span>
+            <span class="ih" data-dir="w"></span><span class="ih" data-dir="e"></span>
+            <span class="ih" data-dir="sw"></span><span class="ih" data-dir="s"></span><span class="ih" data-dir="se"></span>
+          </div>
+        </div>
+        <p class="hint">Drag the box to move, drag a handle to resize. Everything runs in your browser — the file never leaves your device.</p>
       </div>
-      <div class="field"><label for="icQuality">Quality: <span id="icQVal">0.8</span></label><input id="icQuality" type="range" min="0.3" max="1" step="0.05" value="0.8"></div>
-      <p id="icStatus" class="status">Everything happens in your browser — the file never leaves your device.</p>
-    </div>
-    <div class="panel"><h3>Result</h3>
-      <img id="icPreview" alt="" style="max-width:100%;border-radius:8px;display:none">
-      <div class="action-row"><a id="icDownload" class="button secondary" style="display:none">Download</a></div>
-    </div>
-  </div>`);
-  const status = document.getElementById("icStatus");
-  const preview = document.getElementById("icPreview");
-  const dl = document.getElementById("icDownload");
-  const q = document.getElementById("icQuality");
-  q.addEventListener("input", () => { document.getElementById("icQVal").textContent = q.value; process(); });
-  let lastFile = null;
-  document.getElementById("icFile").addEventListener("change", (e) => { lastFile = e.target.files[0]; process(); });
-  ["icWidth", "icFormat"].forEach((id) => document.getElementById(id).addEventListener("input", process));
-  function process() {
-    if (!lastFile) return;
-    const img = new Image();
-    img.onload = () => {
-      const maxW = Number(document.getElementById("icWidth").value) || img.width;
-      const scale = Math.min(1, maxW / img.width);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      const fmt = document.getElementById("icFormat").value;
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { status.textContent = "This browser can't export that format."; return; }
-          const url = URL.createObjectURL(blob);
-          preview.src = url; preview.style.display = "block";
-          dl.href = url; dl.download = `compressed.${fmt.split("/")[1]}`; dl.style.display = "inline-flex";
-          status.textContent = `Output: ${canvas.width}×${canvas.height}, ${(blob.size / 1024).toFixed(0)} KB (was ${(lastFile.size / 1024).toFixed(0)} KB).`;
-        },
-        fmt,
-        Number(q.value)
-      );
-    };
-    img.src = URL.createObjectURL(lastFile);
+      <div class="panel">
+        <div class="field"><label>Aspect ratio</label>
+          <div class="metric-row" id="ieAspect">${["Free", "1:1", "4:3", "16:9", "3:2"]
+            .map((a, i) => `<button type="button" class="chip${i === 0 ? " active" : ""}" data-aspect="${a}">${a}</button>`)
+            .join("")}</div>
+        </div>
+        <div class="field"><label>Resize output (px)</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input id="ieW" type="number" min="1" placeholder="W" style="flex:1">
+            <span style="color:var(--muted)">×</span>
+            <input id="ieH" type="number" min="1" placeholder="H" style="flex:1">
+          </div>
+          <label class="metric" style="cursor:pointer;margin-top:8px"><input type="checkbox" id="ieLock" checked style="width:auto;min-height:auto;margin-right:6px">Lock aspect ratio</label>
+        </div>
+        <div class="field"><label>Format</label>
+          <div class="metric-row" id="ieFormat">${[["image/jpeg", "JPEG"], ["image/webp", "WebP"], ["image/png", "PNG"]]
+            .map((f, i) => `<button type="button" class="chip${i === 0 ? " active" : ""}" data-fmt="${f[0]}">${f[1]}</button>`)
+            .join("")}</div>
+        </div>
+        <div class="field"><label for="ieQuality">Quality: <span id="ieQVal">0.80</span></label><input id="ieQuality" type="range" min="0.3" max="1" step="0.05" value="0.8"></div>
+        <div id="ieInfo" class="tool-callout" style="background:#f7f4ee;border-color:#e7ddcd"><p style="margin:0;color:#5f5a51">Choose an image to see the output size.</p></div>
+        <div class="action-row"><button class="danger" id="ieReset">Reset</button><a id="ieDownload" class="button primary" style="display:none">Download</a></div>
+      </div>
+    </div>`
+  );
+
+  const stage = document.getElementById("ieStage");
+  const imgEl = document.getElementById("ieImg");
+  const cropEl = document.getElementById("ieCrop");
+  const empty = document.getElementById("ieEmpty");
+  const wIn = document.getElementById("ieW");
+  const hIn = document.getElementById("ieH");
+  const lock = document.getElementById("ieLock");
+  const quality = document.getElementById("ieQuality");
+  const info = document.getElementById("ieInfo");
+  const dl = document.getElementById("ieDownload");
+
+  let Nw = 0, Nh = 0, fileSize = 0, lastUrl = null, aspect = null;
+  let fmt = "image/jpeg", fmtLabel = "JPEG";
+  let crop = { x: 0, y: 0, w: 1, h: 1 };
+  let renderTimer = null;
+
+  function displaySize() {
+    return { w: imgEl.clientWidth, h: imgEl.clientHeight };
   }
+  function layout() {
+    const { w, h } = displaySize();
+    cropEl.style.left = `${crop.x * w}px`;
+    cropEl.style.top = `${crop.y * h}px`;
+    cropEl.style.width = `${crop.w * w}px`;
+    cropEl.style.height = `${crop.h * h}px`;
+  }
+  function cropAspect() {
+    return (crop.w * Nw) / (crop.h * Nh);
+  }
+  function setOutputsFromCrop() {
+    wIn.value = Math.round(crop.w * Nw);
+    hIn.value = Math.round(crop.h * Nh);
+  }
+  function scheduleRender() {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(render, 130);
+  }
+  function render() {
+    if (!Nw) return;
+    const outW = Math.max(1, Math.round(Number(wIn.value) || crop.w * Nw));
+    const outH = Math.max(1, Math.round(Number(hIn.value) || crop.h * Nh));
+    const canvas = document.createElement("canvas");
+    canvas.width = outW;
+    canvas.height = outH;
+    canvas.getContext("2d").drawImage(imgEl, crop.x * Nw, crop.y * Nh, crop.w * Nw, crop.h * Nh, 0, 0, outW, outH);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) { info.innerHTML = `<p style="margin:0;color:#8a5a14">This browser can't export that format.</p>`; return; }
+        if (lastUrl) URL.revokeObjectURL(lastUrl);
+        lastUrl = URL.createObjectURL(blob);
+        dl.href = lastUrl;
+        dl.download = `image.${fmt.split("/")[1]}`;
+        dl.style.display = "inline-flex";
+        info.innerHTML = `<p style="margin:0;color:#5f5a51">Output: ${outW} × ${outH} · ${fmtLabel} · ~${(blob.size / 1024).toFixed(0)} KB <span style="color:#9a948a">(was ${(fileSize / 1024).toFixed(0)} KB)</span></p>`;
+      },
+      fmt,
+      Number(quality.value)
+    );
+  }
+
+  function loadFile(file) {
+    if (!file) return;
+    fileSize = file.size;
+    const url = URL.createObjectURL(file);
+    imgEl.onload = () => {
+      Nw = imgEl.naturalWidth;
+      Nh = imgEl.naturalHeight;
+      empty.style.display = "none";
+      imgEl.style.display = "block";
+      cropEl.hidden = false;
+      crop = { x: 0, y: 0, w: 1, h: 1 };
+      aspect = null;
+      stage.querySelectorAll("#ieAspect .chip").forEach((c, i) => c.classList.toggle("active", i === 0));
+      requestAnimationFrame(() => {
+        layout();
+        setOutputsFromCrop();
+        scheduleRender();
+      });
+    };
+    imgEl.src = url;
+  }
+  document.getElementById("ieFile").addEventListener("change", (e) => loadFile(e.target.files[0]));
+
+  // Drag to move / resize the crop box.
+  stage.addEventListener("pointerdown", (e) => {
+    if (!Nw) return;
+    const handle = e.target.closest(".ih");
+    const onBox = e.target === cropEl || cropEl.contains(e.target);
+    if (!handle && !onBox) return;
+    e.preventDefault();
+    const rect = imgEl.getBoundingClientRect();
+    const startX = e.clientX, startY = e.clientY;
+    const start = { ...crop };
+    const dir = handle ? handle.dataset.dir : "move";
+    const minF = 0.04;
+    function move(ev) {
+      const dx = (ev.clientX - startX) / rect.width;
+      const dy = (ev.clientY - startY) / rect.height;
+      const c = { ...start };
+      if (dir === "move") {
+        c.x = Math.min(Math.max(0, start.x + dx), 1 - c.w);
+        c.y = Math.min(Math.max(0, start.y + dy), 1 - c.h);
+      } else {
+        if (dir.includes("w")) { c.x = start.x + dx; c.w = start.w - dx; }
+        if (dir.includes("e")) { c.w = start.w + dx; }
+        if (dir.includes("n")) { c.y = start.y + dy; c.h = start.h - dy; }
+        if (dir.includes("s")) { c.h = start.h + dy; }
+        if (c.w < minF) { if (dir.includes("w")) c.x = start.x + start.w - minF; c.w = minF; }
+        if (c.h < minF) { if (dir.includes("n")) c.y = start.y + start.h - minF; c.h = minF; }
+        if (aspect) { c.h = (c.w * Nw) / (aspect * Nh); if (dir.includes("n")) c.y = start.y + start.h - c.h; }
+        c.x = Math.max(0, c.x); c.y = Math.max(0, c.y);
+        if (c.x + c.w > 1) c.w = 1 - c.x;
+        if (c.y + c.h > 1) c.h = 1 - c.y;
+        if (aspect) { c.h = (c.w * Nw) / (aspect * Nh); if (c.y + c.h > 1) { c.h = 1 - c.y; c.w = (aspect * Nh * c.h) / Nw; } }
+      }
+      crop = c;
+      layout();
+      setOutputsFromCrop();
+      scheduleRender();
+    }
+    function up() {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+    }
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+  });
+
+  // Aspect chips.
+  document.getElementById("ieAspect").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    stage.querySelectorAll("#ieAspect .chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    const a = chip.dataset.aspect;
+    aspect = a === "Free" ? null : (() => { const [p, q2] = a.split(":"); return Number(p) / Number(q2); })();
+    if (aspect && Nw) {
+      crop.h = (crop.w * Nw) / (aspect * Nh);
+      if (crop.y + crop.h > 1) { crop.h = 1 - crop.y; crop.w = (aspect * Nh * crop.h) / Nw; }
+      layout();
+      setOutputsFromCrop();
+      scheduleRender();
+    }
+  });
+
+  // Format chips.
+  document.getElementById("ieFormat").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.querySelectorAll("#ieFormat .chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    fmt = chip.dataset.fmt;
+    fmtLabel = chip.textContent;
+    scheduleRender();
+  });
+
+  wIn.addEventListener("input", () => {
+    if (lock.checked && Nw) hIn.value = Math.round(Number(wIn.value) / cropAspect());
+    scheduleRender();
+  });
+  hIn.addEventListener("input", () => {
+    if (lock.checked && Nw) wIn.value = Math.round(Number(hIn.value) * cropAspect());
+    scheduleRender();
+  });
+  quality.addEventListener("input", () => {
+    document.getElementById("ieQVal").textContent = Number(quality.value).toFixed(2);
+    scheduleRender();
+  });
+  document.getElementById("ieReset").addEventListener("click", () => {
+    if (!Nw) return;
+    crop = { x: 0, y: 0, w: 1, h: 1 };
+    aspect = null;
+    stage.querySelectorAll("#ieAspect .chip").forEach((c, i) => c.classList.toggle("active", i === 0));
+    layout();
+    setOutputsFromCrop();
+    scheduleRender();
+  });
+  window.addEventListener("resize", function onResize() {
+    if (!document.body.contains(stage)) { window.removeEventListener("resize", onResize); return; }
+    if (Nw) layout();
+  });
 }
 
 function renderImageBase64(mount) {

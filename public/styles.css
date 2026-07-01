@@ -789,3 +789,119 @@ button:disabled {
   background: #eef8f6;
   border-color: #f1ece1;
 }
+
+/* Tool search */
+.tool-search {
+  position: relative;
+  margin-top: 14px;
+}
+.tool-search input {
+  min-height: 40px;
+}
+.search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 340px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+}
+.search-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  min-height: auto;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--ink);
+}
+.search-item:hover {
+  background: #eef8f6;
+  transform: none;
+}
+.search-item strong { font-size: 0.92rem; }
+.search-item span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.search-empty {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+/* Image crop & resize editor */
+.img-editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.img-stage {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f4f1ea;
+  min-height: 120px;
+}
+.img-stage img { display: block; width: 100%; }
+.img-empty {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.img-crop {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 4000px rgba(20, 18, 14, 0.45);
+  cursor: move;
+  touch-action: none;
+}
+.img-crop[hidden] { display: none; }
+.img-crop .ih {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 2px;
+  box-sizing: border-box;
+  touch-action: none;
+}
+.ih[data-dir="nw"] { left: -7px; top: -7px; cursor: nwse-resize; }
+.ih[data-dir="ne"] { right: -7px; top: -7px; cursor: nesw-resize; }
+.ih[data-dir="sw"] { left: -7px; bottom: -7px; cursor: nesw-resize; }
+.ih[data-dir="se"] { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.ih[data-dir="n"] { left: 50%; top: -7px; transform: translateX(-50%); cursor: ns-resize; }
+.ih[data-dir="s"] { left: 50%; bottom: -7px; transform: translateX(-50%); cursor: ns-resize; }
+.ih[data-dir="w"] { top: 50%; left: -7px; transform: translateY(-50%); cursor: ew-resize; }
+.ih[data-dir="e"] { top: 50%; right: -7px; transform: translateY(-50%); cursor: ew-resize; }
+
+/* Pill chips (aspect / format) */
+.chip {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  background: #f1efe8;
+  color: var(--ink);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chip.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}

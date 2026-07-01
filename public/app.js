@@ -233,4 +233,64 @@ document.getElementById("clearSettings").addEventListener("click", () => {
   activateTool(findToolFromLocation(), false);
 });
 
+// ---- Tool search ----
+const searchInput = document.getElementById("toolSearch");
+const searchResults = document.getElementById("toolSearchResults");
+
+function renderSearch(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    searchResults.hidden = true;
+    searchResults.innerHTML = "";
+    return;
+  }
+  const matches = TOOL_DEFINITIONS.filter((t) =>
+    `${t.title} ${t.summary} ${t.category}`.toLowerCase().includes(q)
+  ).slice(0, 8);
+  searchResults.innerHTML = matches.length
+    ? matches
+        .map(
+          (t) =>
+            `<button class="search-item" data-tool-id="${t.id}">
+              <strong>${escapeHtml(t.title)}${t.llm ? '<span class="llm-badge">LLM</span>' : ""}</strong>
+              <span>${escapeHtml(t.category)}</span>
+            </button>`
+        )
+        .join("")
+    : `<div class="search-empty">No tools match “${escapeHtml(q)}”.</div>`;
+  searchResults.hidden = false;
+}
+
+function pickSearchResult(id) {
+  const tool = TOOL_DEFINITIONS.find((t) => t.id === id);
+  if (!tool) return;
+  activateTool(tool);
+  searchInput.value = "";
+  searchResults.hidden = true;
+  searchResults.innerHTML = "";
+}
+
+searchInput.addEventListener("input", () => renderSearch(searchInput.value));
+searchInput.addEventListener("focus", () => {
+  if (searchInput.value.trim()) renderSearch(searchInput.value);
+});
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    searchInput.value = "";
+    searchResults.hidden = true;
+  } else if (event.key === "Enter") {
+    const first = searchResults.querySelector("[data-tool-id]");
+    if (first) pickSearchResult(first.dataset.toolId);
+  }
+});
+// mousedown fires before the input's blur, so the click still registers.
+searchResults.addEventListener("mousedown", (event) => {
+  const button = event.target.closest("[data-tool-id]");
+  if (button) {
+    event.preventDefault();
+    pickSearchResult(button.dataset.toolId);
+  }
+});
+searchInput.addEventListener("blur", () => setTimeout(() => (searchResults.hidden = true), 150));
+
 activateTool(findToolFromLocation(), false);

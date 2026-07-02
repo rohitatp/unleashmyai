@@ -129,42 +129,70 @@ function attachDictation(button, target, statusEl) {
     return;
   }
   let recognition = null;
-  let listening = false;
-  button.addEventListener("click", () => {
-    if (listening && recognition) {
-      recognition.stop();
-      return;
-    }
+  let active = false; // user wants to keep recording
+  let base = ""; // text before the current session
+  let sessionFinal = "";
+
+  function paint(interim) {
+    target.value = `${base} ${sessionFinal} ${interim}`.replace(/\s+/g, " ").trim();
+  }
+  function startSession() {
     recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.continuous = true;
     recognition.interimResults = true;
-    let base = target.value ? `${target.value.trim()} ` : "";
+    sessionFinal = "";
     recognition.onstart = () => {
-      listening = true;
       button.textContent = "Stop recording";
       if (statusEl) statusEl.textContent = "Listening…";
     };
     recognition.onerror = (event) => {
-      if (statusEl) statusEl.textContent = `Mic error: ${event.error}`;
-    };
-    recognition.onend = () => {
-      listening = false;
-      button.textContent = "Record voice";
-      if (statusEl) statusEl.textContent = "";
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        active = false;
+        if (statusEl) statusEl.textContent = "Mic access is blocked.";
+      }
     };
     recognition.onresult = (event) => {
       let interim = "";
-      let finalAdd = "";
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      let finals = "";
+      for (let i = 0; i < event.results.length; i += 1) {
         const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalAdd += `${t} `;
+        if (event.results[i].isFinal) finals += `${t} `;
         else interim += t;
       }
-      if (finalAdd) base += finalAdd;
-      target.value = `${base}${interim}`.replace(/\s+/g, " ").trimStart();
+      sessionFinal = finals.trim();
+      paint(interim);
     };
-    recognition.start();
+    recognition.onend = () => {
+      if (sessionFinal) {
+        base = `${base} ${sessionFinal}`.replace(/\s+/g, " ").trim();
+        sessionFinal = "";
+      }
+      paint("");
+      // Restart across Chrome's silence timeout so long voice notes keep going.
+      if (active) {
+        startSession();
+      } else {
+        button.textContent = "Record voice";
+        if (statusEl) statusEl.textContent = "";
+      }
+    };
+    try {
+      recognition.start();
+    } catch {
+      /* ignore transient start error */
+    }
+  }
+  button.addEventListener("click", () => {
+    if (active) {
+      active = false;
+      if (recognition) recognition.stop();
+      return;
+    }
+    base = target.value ? target.value.trim() : "";
+    sessionFinal = "";
+    active = true;
+    startSession();
   });
 }
 
@@ -606,51 +634,97 @@ function renderSpeechToText(mount) {
   const stopButton = document.getElementById("sttStop");
   const output = document.getElementById("sttOutput");
   const status = document.getElementById("sttStatus");
+
   let recognition = null;
+  let listening = false; // user intends to keep recording
+  let wantContinuous = true; // from the Mode select, read at Start
+  let committed = ""; // text finalized in previous recognition sessions
+  let sessionFinal = ""; // text finalized in the current session
 
   if (!SpeechRecognition) {
-    status.textContent = "Speech recognition is not available in this browser.";
+    status.textContent = "Speech recognition is not available in this browser (try Chrome).";
     startButton.disabled = true;
   }
 
-  startButton.addEventListener("click", () => {
+  function paint(interim) {
+    output.value = [committed, sessionFinal, interim]
+      .filter((s) => s && s.trim())
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function startRecognition() {
     recognition = new SpeechRecognition();
     recognition.lang = document.getElementById("sttLang").value;
-    recognition.continuous = document.getElementById("sttMode").value === "true";
+    recognition.continuous = wantContinuous;
     recognition.interimResults = true;
-
-    let finalText = output.value.trim();
+    sessionFinal = "";
 
     recognition.onstart = () => {
-      status.textContent = "Listening...";
+      status.textContent = "Listening…";
     };
     recognition.onerror = (event) => {
-      status.textContent = `Recognition error: ${event.error}`;
-    };
-    recognition.onend = () => {
-      status.textContent = "Recording stopped.";
+      // Fatal → stop for good. Transient (no-speech/aborted/network) → onend restarts.
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        listening = false;
+        status.textContent = "Microphone access is blocked. Allow the mic and try again.";
+      }
     };
     recognition.onresult = (event) => {
-      let interimText = "";
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const transcript = event.results[index][0].transcript.trim();
-        if (event.results[index].isFinal) {
-          finalText = `${finalText} ${transcript}`.trim();
-        } else {
-          interimText = transcript;
-        }
+      // Rebuild from the full results list each time so nothing is skipped.
+      let interim = "";
+      let finals = "";
+      for (let i = 0; i < event.results.length; i += 1) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finals += `${transcript} `;
+        else interim += transcript;
       }
-      output.value = [finalText, interimText].filter(Boolean).join("\n");
+      sessionFinal = finals.trim();
+      paint(interim);
+    };
+    recognition.onend = () => {
+      // Fold this session's finalized text into the running transcript.
+      if (sessionFinal) {
+        committed = `${committed} ${sessionFinal}`.replace(/\s+/g, " ").trim();
+        sessionFinal = "";
+      }
+      paint("");
+      // Chrome auto-stops after a few seconds of silence — restart so long
+      // dictation keeps going instead of dropping the rest of the speech.
+      if (listening && wantContinuous) {
+        startRecognition();
+      } else {
+        listening = false;
+        status.textContent = "Recording stopped.";
+      }
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      /* ignore a transient "already started"; next onend will recreate it */
+    }
+  }
+
+  startButton.addEventListener("click", () => {
+    if (!SpeechRecognition || listening) return;
+    committed = output.value.trim();
+    sessionFinal = "";
+    wantContinuous = document.getElementById("sttMode").value === "true";
+    listening = true;
+    startRecognition();
   });
 
   stopButton.addEventListener("click", () => {
+    listening = false;
     if (recognition) recognition.stop();
+    status.textContent = "Recording stopped.";
   });
 
   document.getElementById("sttClear").addEventListener("click", () => {
+    committed = "";
+    sessionFinal = "";
     output.value = "";
     status.textContent = "Transcript cleared.";
   });

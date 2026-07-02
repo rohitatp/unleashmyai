@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "unleashmyai",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/rohit/Documents/Codex/unleashmyai && PORT=3105 npm start"],
+      "port": 3105
+    }
+  ]
+}

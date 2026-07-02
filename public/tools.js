@@ -710,6 +710,16 @@ function renderSpeechToText(mount) {
   let wantContinuous = true; // from the Mode select, read at Start
   let committed = ""; // text finalized in previous recognition sessions
   let sessionFinal = ""; // text finalized in the current session
+  let lastError = ""; // error code from the current session, if any
+  let restarts = 0; // consecutive restarts with no speech, to break hot loops
+
+  const ERROR_MESSAGES = {
+    "not-allowed": "Microphone access is blocked. Allow the mic in your browser and try again.",
+    "service-not-allowed": "Speech service is blocked. Allow the mic and reload, then try again.",
+    "audio-capture": "No microphone was found. Plug one in or check your input device.",
+    network: "Speech recognition needs an internet connection and it couldn't reach the service. Check your connection and try again.",
+    "language-not-supported": "That language isn't supported for speech recognition. Pick another language.",
+  };
 
   if (!SpeechRecognition) {
     status.textContent = "Speech recognition is not available in this browser (try Chrome).";
@@ -732,13 +742,17 @@ function renderSpeechToText(mount) {
     sessionFinal = "";
 
     recognition.onstart = () => {
+      lastError = "";
+      restarts = 0;
       status.textContent = "Listening…";
     };
     recognition.onerror = (event) => {
-      // Fatal → stop for good. Transient (no-speech/aborted/network) → onend restarts.
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      lastError = event.error;
+      // Hard errors → stop for good and tell the user what happened.
+      // Transient ones (no-speech, aborted) → let onend restart silently.
+      if (ERROR_MESSAGES[event.error]) {
         listening = false;
-        status.textContent = "Microphone access is blocked. Allow the mic and try again.";
+        status.textContent = ERROR_MESSAGES[event.error];
       }
     };
     recognition.onresult = (event) => {
@@ -763,10 +777,19 @@ function renderSpeechToText(mount) {
       // Chrome auto-stops after a few seconds of silence — restart so long
       // dictation keeps going instead of dropping the rest of the speech.
       if (listening && wantContinuous) {
+        // If a session ends immediately with nothing captured, count it. A few
+        // in a row means the service can't run (offline, backend down) — surface
+        // it instead of spinning in an invisible restart loop.
+        restarts = sessionFinal || (output.value && output.value.length) ? 0 : restarts + 1;
+        if (restarts >= 5) {
+          listening = false;
+          status.textContent = "Couldn't capture any audio. Check your mic and internet connection, then press Start again.";
+          return;
+        }
         startRecognition();
       } else {
         listening = false;
-        status.textContent = "Recording stopped.";
+        status.textContent = lastError && ERROR_MESSAGES[lastError] ? ERROR_MESSAGES[lastError] : "Recording stopped.";
         if (document.getElementById("sttTranslate").value) runTranslate();
       }
     };

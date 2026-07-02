@@ -584,6 +584,53 @@ Make them varied: some curiosity-driven, some direct and specific, some benefit-
   });
 }
 
+// ---- Translation (no LLM): on-device Translator API if present, else the free keyless MyMemory API ----
+function chunkForTranslation(text, maxLen) {
+  const parts = String(text).match(/[^.!?]+[.!?]*\s*/g) || [String(text)];
+  const chunks = [];
+  let cur = "";
+  for (const part of parts) {
+    if (part.length > maxLen) {
+      if (cur.trim()) { chunks.push(cur.trim()); cur = ""; }
+      for (let i = 0; i < part.length; i += maxLen) chunks.push(part.slice(i, i + maxLen).trim());
+      continue;
+    }
+    if ((cur + part).length > maxLen && cur) { chunks.push(cur.trim()); cur = ""; }
+    cur += part;
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks.filter(Boolean);
+}
+
+async function translateText(text, from, to) {
+  if (!to || from === to) return text;
+  // Prefer an already-downloaded on-device model (Chrome) — free, private, offline.
+  try {
+    if (typeof Translator !== "undefined" && Translator.availability) {
+      const status = await Translator.availability({ sourceLanguage: from, targetLanguage: to });
+      if (status === "available") {
+        const translator = await Translator.create({ sourceLanguage: from, targetLanguage: to });
+        return await translator.translate(text);
+      }
+    }
+  } catch {
+    /* fall through to the network service */
+  }
+  // Free, keyless fallback. Chunk to respect the per-request limit.
+  const out = [];
+  for (const chunk of chunkForTranslation(text, 450)) {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${encodeURIComponent(from)}|${encodeURIComponent(to)}`;
+    const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+    const translated = data && data.responseData && data.responseData.translatedText;
+    if (!res.ok || !translated || (data.responseStatus && Number(data.responseStatus) >= 400)) {
+      throw new Error("Translation is busy or over its free daily limit. Try again shortly.");
+    }
+    out.push(translated);
+  }
+  return out.join(" ");
+}
+
 // ---- Browser voice tools (no LLM) ----
 function renderSpeechToText(mount) {
   renderShell(
@@ -611,6 +658,20 @@ function renderSpeechToText(mount) {
             </select>
           </div>
         </div>
+        <div class="field">
+          <label for="sttTranslate">Translate to</label>
+          <select id="sttTranslate">
+            <option value="">Off</option>
+            <option value="es">Spanish</option>
+            <option value="hi">Hindi</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="pt">Portuguese</option>
+            <option value="ar">Arabic</option>
+            <option value="ja">Japanese</option>
+            <option value="zh">Chinese</option>
+          </select>
+        </div>
         <div class="action-row">
           <button class="primary" id="sttStart">Start recording</button>
           <button class="secondary" id="sttStop">Stop</button>
@@ -624,6 +685,15 @@ function renderSpeechToText(mount) {
         <div class="action-row">
           <button class="secondary" id="sttCopy">Copy</button>
           <button class="secondary" id="sttDownload">Download .txt</button>
+        </div>
+        <div id="sttTransBlock" hidden>
+          <h3 style="margin-top:18px">Translation</h3>
+          <div id="sttTransOut" class="output"></div>
+          <div class="action-row">
+            <button class="primary" id="sttTranslateBtn">Translate</button>
+            <button class="secondary" id="sttTransCopy">Copy</button>
+            <button class="secondary" id="sttTransDownload">Download .txt</button>
+          </div>
         </div>
       </div>
     </div>`
@@ -697,6 +767,7 @@ function renderSpeechToText(mount) {
       } else {
         listening = false;
         status.textContent = "Recording stopped.";
+        if (document.getElementById("sttTranslate").value) runTranslate();
       }
     };
 
@@ -731,6 +802,34 @@ function renderSpeechToText(mount) {
 
   document.getElementById("sttCopy").addEventListener("click", () => copyText(output.value, status));
   document.getElementById("sttDownload").addEventListener("click", () => downloadText("speech-transcript.txt", output.value));
+
+  // Optional translation (off by default; no LLM).
+  const translateSel = document.getElementById("sttTranslate");
+  const transBlock = document.getElementById("sttTransBlock");
+  const transOut = document.getElementById("sttTransOut");
+  translateSel.addEventListener("change", () => {
+    transBlock.hidden = !translateSel.value;
+  });
+  async function runTranslate() {
+    const to = translateSel.value;
+    if (!to) return;
+    const text = output.value.trim();
+    if (!text) {
+      status.textContent = "Nothing to translate yet.";
+      return;
+    }
+    const from = (document.getElementById("sttLang").value || "en").split("-")[0];
+    status.textContent = "Translating…";
+    try {
+      transOut.textContent = await translateText(text, from, to);
+      status.textContent = "Translated.";
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  }
+  document.getElementById("sttTranslateBtn").addEventListener("click", runTranslate);
+  document.getElementById("sttTransCopy").addEventListener("click", () => copyText(transOut.textContent, status));
+  document.getElementById("sttTransDownload").addEventListener("click", () => downloadText("translation.txt", transOut.textContent));
 }
 
 function renderTextToSpeech(mount) {
